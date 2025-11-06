@@ -64,10 +64,10 @@ user-service/
 | # | Task | Status | Branch | Commit | Files |
 |---|------|--------|--------|--------|-------|
 | 1 | Bootstrap User Service Repository | ✅ Completed | `feature/bootstrap-repo` | `feat: initialize go module and folder structure` | go.mod, .gitignore, Makefile, folder structure |
-| 2 | Database Schema & Migrations | ✅ Completed | `main` | `feat: add database migrations for users and refresh_tokens tables` | migrations/*.sql |
-| 3 | sqlc Configuration & Queries | ⚪ Not Started | - | - | - |
-| 4 | Domain Layer - Models & Interfaces | ⚪ Not Started | - | - | - |
-| 5 | Repository Implementation with sqlc | ⚪ Not Started | - | - | - |
+| 2 | Database Schema & Migrations | ✅ Completed | 2b3b527 | users + refresh_tokens tables with migrations | 2024-01-XX |
+| 3 | sqlc Configuration & Queries | ✅ Completed | 4cb0710 | 15 type-safe SQL queries generated | 2024-01-XX |
+| 4 | Domain Layer - Models & Interfaces | ✅ Completed | cb82e41 | Models, interfaces, errors, 24 passing tests | 2024-01-XX |
+| 5 | Repository Implementation with sqlc | ✅ Completed | - | UserRepo + RefreshTokenRepo, 16 test suites passing | 2024-01-XX |
 | 6 | Password Hashing with Argon2id | ⚪ Not Started | - | - | - |
 | 7 | JWT Token Service | ⚪ Not Started | - | - | - |
 | 8 | User Service Implementation | ⚪ Not Started | - | - | - |

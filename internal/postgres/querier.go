@@ -25,7 +25,7 @@ type Querier interface {
 	// Should be run periodically as a cleanup job.
 	DeleteExpiredTokens(ctx context.Context) error
 	// GetRefreshToken retrieves a refresh token by its value.
-	// Returns error if token not found or revoked.
+	// Returns the token regardless of revoked status (caller should check IsRevoked).
 	GetRefreshToken(ctx context.Context, token string) (RefreshToken, error)
 	// GetUserActiveTokens retrieves all active (non-expired, non-revoked) tokens for a user.
 	// Useful for session management and "active devices" feature.
@@ -44,10 +44,10 @@ type Querier interface {
 	RevokeAllUserTokens(ctx context.Context, userID uuid.UUID) error
 	// RevokeRefreshToken marks a refresh token as revoked.
 	// Sets revoked_at timestamp to current time.
-	RevokeRefreshToken(ctx context.Context, token string) error
+	RevokeRefreshToken(ctx context.Context, token string) (int64, error)
 	// SoftDeleteUser marks a user as deleted without removing the record.
 	// Sets deleted_at timestamp to current time.
-	SoftDeleteUser(ctx context.Context, id uuid.UUID) error
+	SoftDeleteUser(ctx context.Context, id uuid.UUID) (int64, error)
 	// UpdateUserKYCStatus updates the KYC verification status for a user.
 	// Valid statuses: pending, verified, rejected
 	UpdateUserKYCStatus(ctx context.Context, arg UpdateUserKYCStatusParams) (User, error)

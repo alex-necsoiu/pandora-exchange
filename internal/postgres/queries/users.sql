@@ -30,7 +30,7 @@ SET kyc_status = $2
 WHERE id = $1 AND deleted_at IS NULL
 RETURNING *;
 
--- name: SoftDeleteUser :exec
+-- name: SoftDeleteUser :execrows
 -- SoftDeleteUser marks a user as deleted without removing the record.
 -- Sets deleted_at timestamp to current time.
 UPDATE users

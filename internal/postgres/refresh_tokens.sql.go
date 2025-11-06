@@ -84,11 +84,11 @@ func (q *Queries) DeleteExpiredTokens(ctx context.Context) error {
 
 const getRefreshToken = `-- name: GetRefreshToken :one
 SELECT token, user_id, expires_at, created_at, revoked_at, ip_address, user_agent FROM refresh_tokens
-WHERE token = $1 AND revoked_at IS NULL
+WHERE token = $1
 `
 
 // GetRefreshToken retrieves a refresh token by its value.
-// Returns error if token not found or revoked.
+// Returns the token regardless of revoked status (caller should check IsRevoked).
 func (q *Queries) GetRefreshToken(ctx context.Context, token string) (RefreshToken, error) {
 	row := q.db.QueryRow(ctx, getRefreshToken, token)
 	var i RefreshToken
@@ -155,7 +155,7 @@ func (q *Queries) RevokeAllUserTokens(ctx context.Context, userID uuid.UUID) err
 	return err
 }
 
-const revokeRefreshToken = `-- name: RevokeRefreshToken :exec
+const revokeRefreshToken = `-- name: RevokeRefreshToken :execrows
 UPDATE refresh_tokens
 SET revoked_at = NOW()
 WHERE token = $1 AND revoked_at IS NULL
@@ -163,7 +163,10 @@ WHERE token = $1 AND revoked_at IS NULL
 
 // RevokeRefreshToken marks a refresh token as revoked.
 // Sets revoked_at timestamp to current time.
-func (q *Queries) RevokeRefreshToken(ctx context.Context, token string) error {
-	_, err := q.db.Exec(ctx, revokeRefreshToken, token)
-	return err
+func (q *Queries) RevokeRefreshToken(ctx context.Context, token string) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeRefreshToken, token)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

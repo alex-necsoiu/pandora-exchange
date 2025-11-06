@@ -148,7 +148,7 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 	return items, nil
 }
 
-const softDeleteUser = `-- name: SoftDeleteUser :exec
+const softDeleteUser = `-- name: SoftDeleteUser :execrows
 UPDATE users
 SET deleted_at = NOW()
 WHERE id = $1 AND deleted_at IS NULL
@@ -156,9 +156,12 @@ WHERE id = $1 AND deleted_at IS NULL
 
 // SoftDeleteUser marks a user as deleted without removing the record.
 // Sets deleted_at timestamp to current time.
-func (q *Queries) SoftDeleteUser(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, softDeleteUser, id)
-	return err
+func (q *Queries) SoftDeleteUser(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, softDeleteUser, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateUserKYCStatus = `-- name: UpdateUserKYCStatus :one

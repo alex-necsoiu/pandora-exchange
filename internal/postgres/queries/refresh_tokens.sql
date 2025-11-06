@@ -13,11 +13,11 @@ INSERT INTO refresh_tokens (
 
 -- name: GetRefreshToken :one
 -- GetRefreshToken retrieves a refresh token by its value.
--- Returns error if token not found or revoked.
+-- Returns the token regardless of revoked status (caller should check IsRevoked).
 SELECT * FROM refresh_tokens
-WHERE token = $1 AND revoked_at IS NULL;
+WHERE token = $1;
 
--- name: RevokeRefreshToken :exec
+-- name: RevokeRefreshToken :execrows
 -- RevokeRefreshToken marks a refresh token as revoked.
 -- Sets revoked_at timestamp to current time.
 UPDATE refresh_tokens
