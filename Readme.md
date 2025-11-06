@@ -69,8 +69,8 @@ user-service/
 | 4 | Domain Layer - Models & Interfaces | ✅ Completed | cb82e41 | Models, interfaces, errors, 24 passing tests | 2024-01-XX |
 | 5 | Repository Implementation with sqlc | ✅ Completed | a5e278d | UserRepo + RefreshTokenRepo, 16 test suites passing | 2024-01-XX |
 | 6 | Password Hashing with Argon2id | ✅ Completed | 1debc6c | Argon2id (64MB, t=1, p=4), timing attack resistant | 2024-01-XX |
-| 7 | JWT Token Service | ✅ Completed | - | HS256, access (15min) + refresh (7d), Vault-ready | 2024-01-XX |
-| 8 | User Service Implementation | ⚪ Not Started | - | - | - |
+| 7 | JWT Token Service | ✅ Completed | a02114b | HS256, access (15min) + refresh (7d), Vault-ready | 2024-01-XX |
+| 8 | User Service Implementation | ✅ Completed | - | 11 methods, 10 test suites, 22 tests passing | 2024-01-XX |
 | 9 | Configuration Management | ⚪ Not Started | - | - | - |
 | 10 | Logging with Zerolog | ⚪ Not Started | - | - | - |
 | 11 | OpenTelemetry Tracing Setup | ⚪ Not Started | - | - | - |
