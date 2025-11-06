@@ -67,8 +67,8 @@ user-service/
 | 2 | Database Schema & Migrations | ✅ Completed | 2b3b527 | users + refresh_tokens tables with migrations | 2024-01-XX |
 | 3 | sqlc Configuration & Queries | ✅ Completed | 4cb0710 | 15 type-safe SQL queries generated | 2024-01-XX |
 | 4 | Domain Layer - Models & Interfaces | ✅ Completed | cb82e41 | Models, interfaces, errors, 24 passing tests | 2024-01-XX |
-| 5 | Repository Implementation with sqlc | ✅ Completed | - | UserRepo + RefreshTokenRepo, 16 test suites passing | 2024-01-XX |
-| 6 | Password Hashing with Argon2id | ⚪ Not Started | - | - | - |
+| 5 | Repository Implementation with sqlc | ✅ Completed | a5e278d | UserRepo + RefreshTokenRepo, 16 test suites passing | 2024-01-XX |
+| 6 | Password Hashing with Argon2id | ✅ Completed | - | Argon2id (64MB, t=1, p=4), timing attack resistant | 2024-01-XX |
 | 7 | JWT Token Service | ⚪ Not Started | - | - | - |
 | 8 | User Service Implementation | ⚪ Not Started | - | - | - |
 | 9 | Configuration Management | ⚪ Not Started | - | - | - |
