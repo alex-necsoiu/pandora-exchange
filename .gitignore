@@ -1,0 +1,81 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.out
+coverage.html
+
+# Go workspace file
+go.work
+
+# Build artifacts
+/bin/
+/build/
+/dist/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment files (secrets should be in Vault)
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# sqlc generated files (will be regenerated)
+/internal/postgres/models.go
+/internal/postgres/querier.go
+/internal/postgres/*.sql.go
+
+# Temporary files
+tmp/
+temp/
+.cache/
+
+# Docker volumes
+docker-data/
+postgres-data/
+redis-data/
+
+# Kubernetes secrets
+k8s/secrets/
+*.secret.yaml
+
+# Test cache
+.testcache/
+
+# Vendor (using Go modules)
+/vendor/
+
+# OS-specific
+Thumbs.db
+ehthumbs.db
+
+# Compiled protobuf files (will be regenerated)
+*.pb.go
+*_grpc.pb.go
+
+# Air live reload
+.air.toml.tmp
+tmp/

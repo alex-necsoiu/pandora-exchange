@@ -1,0 +1,47 @@
+# Docker Compose for Pandora Exchange - Development Environment
+# Provides PostgreSQL and Redis for local development
+
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: pandora-postgres
+    environment:
+      POSTGRES_DB: pandora_dev
+      POSTGRES_USER: pandora
+      POSTGRES_PASSWORD: pandora_dev_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pandora"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pandora-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: pandora-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - pandora-network
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  pandora-network:
+    driver: bridge
