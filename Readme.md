@@ -68,8 +68,8 @@ user-service/
 | 3 | sqlc Configuration & Queries | ✅ Completed | 4cb0710 | 15 type-safe SQL queries generated | 2024-01-XX |
 | 4 | Domain Layer - Models & Interfaces | ✅ Completed | cb82e41 | Models, interfaces, errors, 24 passing tests | 2024-01-XX |
 | 5 | Repository Implementation with sqlc | ✅ Completed | a5e278d | UserRepo + RefreshTokenRepo, 16 test suites passing | 2024-01-XX |
-| 6 | Password Hashing with Argon2id | ✅ Completed | - | Argon2id (64MB, t=1, p=4), timing attack resistant | 2024-01-XX |
-| 7 | JWT Token Service | ⚪ Not Started | - | - | - |
+| 6 | Password Hashing with Argon2id | ✅ Completed | 1debc6c | Argon2id (64MB, t=1, p=4), timing attack resistant | 2024-01-XX |
+| 7 | JWT Token Service | ✅ Completed | - | HS256, access (15min) + refresh (7d), Vault-ready | 2024-01-XX |
 | 8 | User Service Implementation | ⚪ Not Started | - | - | - |
 | 9 | Configuration Management | ⚪ Not Started | - | - | - |
 | 10 | Logging with Zerolog | ⚪ Not Started | - | - | - |
