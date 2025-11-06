@@ -43,10 +43,11 @@ logs/
 *.sqlite
 *.sqlite3
 
-# sqlc generated files (will be regenerated)
-/internal/postgres/models.go
-/internal/postgres/querier.go
-/internal/postgres/*.sql.go
+# sqlc generated files (committed to git for now, can be regenerated with `make sqlc`)
+# Uncomment below to ignore them:
+# /internal/postgres/models.go
+# /internal/postgres/querier.go
+# /internal/postgres/*.sql.go
 
 # Temporary files
 tmp/

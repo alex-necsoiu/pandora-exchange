@@ -64,7 +64,7 @@ user-service/
 | # | Task | Status | Branch | Commit | Files |
 |---|------|--------|--------|--------|-------|
 | 1 | Bootstrap User Service Repository | ✅ Completed | `feature/bootstrap-repo` | `feat: initialize go module and folder structure` | go.mod, .gitignore, Makefile, folder structure |
-| 2 | Database Schema & Migrations | ⚪ Not Started | - | - | - |
+| 2 | Database Schema & Migrations | ✅ Completed | `main` | `feat: add database migrations for users and refresh_tokens tables` | migrations/*.sql |
 | 3 | sqlc Configuration & Queries | ⚪ Not Started | - | - | - |
 | 4 | Domain Layer - Models & Interfaces | ⚪ Not Started | - | - | - |
 | 5 | Repository Implementation with sqlc | ⚪ Not Started | - | - | - |
