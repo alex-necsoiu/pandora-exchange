@@ -63,6 +63,7 @@ func (u *User) IsKYCVerified() bool {
 // TokenPair represents an access token and refresh token pair.
 // Used for JWT-based authentication.
 type TokenPair struct {
+	User         *User
 	AccessToken  string
 	RefreshToken string
 	ExpiresAt    time.Time

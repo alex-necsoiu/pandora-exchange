@@ -184,6 +184,7 @@ func (s *UserService) Login(ctx context.Context, email, password, ipAddress, use
 	}).Info("user logged in successfully")
 
 	return &domain.TokenPair{
+		User:         user,
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		ExpiresAt:    expiresAt,
@@ -272,6 +273,7 @@ func (s *UserService) RefreshToken(ctx context.Context, refreshToken, ipAddress,
 	}).Info("token refreshed successfully")
 
 	return &domain.TokenPair{
+		User:         user,
 		AccessToken:  newAccessToken,
 		RefreshToken: newRefreshToken,
 		ExpiresAt:    expiresAt,
