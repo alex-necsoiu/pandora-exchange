@@ -1,7 +1,7 @@
 # Pandora Exchange - User Service Makefile
 # Architecture-compliant build automation
 
-.PHONY: help dev-up dev-down migrate migrate-down sqlc test test-coverage lint build run docker-build clean proto install-tools
+.PHONY: help dev-up dev-down migrate migrate-down migrate-force migrate-version migrate-create sqlc test test-coverage lint build run docker-build clean proto install-tools
 
 # Variables
 SERVICE_NAME := user-service
@@ -19,7 +19,10 @@ help:
 	@echo "  make dev-up          - Start PostgreSQL + Redis in Docker"
 	@echo "  make dev-down        - Stop development environment"
 	@echo "  make migrate         - Run database migrations (up)"
-	@echo "  make migrate-down    - Rollback database migrations"
+	@echo "  make migrate-down    - Rollback last migration"
+	@echo "  make migrate-force   - Force migration to specific version"
+	@echo "  make migrate-version - Show current migration version"
+	@echo "  make migrate-create  - Create new migration files (use NAME=migration_name)"
 	@echo "  make sqlc            - Generate sqlc code from SQL queries"
 	@echo "  make proto           - Generate gRPC code from protobuf"
 	@echo "  make test            - Run all tests"
@@ -69,6 +72,33 @@ migrate-down:
 	@echo "Rolling back last migration..."
 	migrate -path $(MIGRATIONS_DIR) -database "$(POSTGRES_URL)" down 1
 	@echo "✅ Migration rolled back"
+
+## migrate-force: Force migration to specific version (use VERSION=N)
+migrate-force:
+	@if [ -z "$(VERSION)" ]; then \
+		echo "❌ ERROR: VERSION not specified"; \
+		echo "Usage: make migrate-force VERSION=2"; \
+		exit 1; \
+	fi
+	@echo "Forcing migration to version $(VERSION)..."
+	migrate -path $(MIGRATIONS_DIR) -database "$(POSTGRES_URL)" force $(VERSION)
+	@echo "✅ Migration forced to version $(VERSION)"
+
+## migrate-version: Show current migration version
+migrate-version:
+	@echo "Current migration version:"
+	@migrate -path $(MIGRATIONS_DIR) -database "$(POSTGRES_URL)" version
+
+## migrate-create: Create new migration files (use NAME=migration_name)
+migrate-create:
+	@if [ -z "$(NAME)" ]; then \
+		echo "❌ ERROR: NAME not specified"; \
+		echo "Usage: make migrate-create NAME=add_user_roles"; \
+		exit 1; \
+	fi
+	@echo "Creating new migration: $(NAME)..."
+	migrate create -ext sql -dir $(MIGRATIONS_DIR) -seq $(NAME)
+	@echo "✅ Migration files created"
 
 ## sqlc: Generate sqlc code from SQL queries
 sqlc:
