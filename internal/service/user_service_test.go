@@ -1,17 +1,25 @@
 package service_test
 
 import (
+	"bytes"
 	"context"
 	"testing"
 	"time"
 
 	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	"github.com/alex-necsoiu/pandora-exchange/internal/service"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+// getTestLogger creates a logger for testing that writes to a buffer
+func getTestLogger() *observability.Logger {
+	var buf bytes.Buffer
+	return observability.NewLoggerWithWriter("dev", "test-service", &buf)
+}
 
 // MockUserRepository is a mock implementation of domain.UserRepository
 type MockUserRepository struct {
@@ -131,7 +139,7 @@ func TestRegister(t *testing.T) {
 		userRepo := new(MockUserRepository)
 		tokenRepo := new(MockRefreshTokenRepository)
 		
-		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour)
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -164,7 +172,7 @@ func TestRegister(t *testing.T) {
 		userRepo := new(MockUserRepository)
 		tokenRepo := new(MockRefreshTokenRepository)
 		
-		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour)
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -181,7 +189,7 @@ func TestRegister(t *testing.T) {
 		userRepo := new(MockUserRepository)
 		tokenRepo := new(MockRefreshTokenRepository)
 		
-		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour)
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
 		_, err = svc.Register(context.Background(), "test@example.com", "", "User")
@@ -192,7 +200,7 @@ func TestRegister(t *testing.T) {
 		userRepo := new(MockUserRepository)
 		tokenRepo := new(MockRefreshTokenRepository)
 		
-		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour)
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
 		_, err = svc.Register(context.Background(), "", "password123", "User")
@@ -206,7 +214,7 @@ func TestLogin(t *testing.T) {
 		userRepo := new(MockUserRepository)
 		tokenRepo := new(MockRefreshTokenRepository)
 		
-		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour)
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -237,7 +245,7 @@ func TestLogin(t *testing.T) {
 		userRepo := new(MockUserRepository)
 		tokenRepo := new(MockRefreshTokenRepository)
 		
-		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour)
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -257,7 +265,7 @@ func TestLogin(t *testing.T) {
 		userRepo := new(MockUserRepository)
 		tokenRepo := new(MockRefreshTokenRepository)
 		
-		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour)
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -274,7 +282,7 @@ func TestRefreshToken(t *testing.T) {
 		userRepo := new(MockUserRepository)
 		tokenRepo := new(MockRefreshTokenRepository)
 		
-		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour)
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -307,7 +315,7 @@ func TestRefreshToken(t *testing.T) {
 		userRepo := new(MockUserRepository)
 		tokenRepo := new(MockRefreshTokenRepository)
 		
-		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour)
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -324,7 +332,7 @@ func TestLogout(t *testing.T) {
 		userRepo := new(MockUserRepository)
 		tokenRepo := new(MockRefreshTokenRepository)
 		
-		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour)
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -342,7 +350,7 @@ func TestLogout(t *testing.T) {
 		userRepo := new(MockUserRepository)
 		tokenRepo := new(MockRefreshTokenRepository)
 		
-		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour)
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -359,7 +367,7 @@ func TestLogoutAll(t *testing.T) {
 		userRepo := new(MockUserRepository)
 		tokenRepo := new(MockRefreshTokenRepository)
 		
-		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour)
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -380,7 +388,7 @@ func TestGetByID(t *testing.T) {
 		userRepo := new(MockUserRepository)
 		tokenRepo := new(MockRefreshTokenRepository)
 		
-		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour)
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -400,7 +408,7 @@ func TestGetByID(t *testing.T) {
 		userRepo := new(MockUserRepository)
 		tokenRepo := new(MockRefreshTokenRepository)
 		
-		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour)
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -419,7 +427,7 @@ func TestUpdateKYC(t *testing.T) {
 		userRepo := new(MockUserRepository)
 		tokenRepo := new(MockRefreshTokenRepository)
 		
-		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour)
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -443,7 +451,7 @@ func TestUpdateKYC(t *testing.T) {
 		userRepo := new(MockUserRepository)
 		tokenRepo := new(MockRefreshTokenRepository)
 		
-		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour)
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -463,7 +471,7 @@ func TestUpdateProfile(t *testing.T) {
 		userRepo := new(MockUserRepository)
 		tokenRepo := new(MockRefreshTokenRepository)
 		
-		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour)
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -490,7 +498,7 @@ func TestDeleteAccount(t *testing.T) {
 		userRepo := new(MockUserRepository)
 		tokenRepo := new(MockRefreshTokenRepository)
 		
-		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour)
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -510,7 +518,7 @@ func TestDeleteAccount(t *testing.T) {
 		userRepo := new(MockUserRepository)
 		tokenRepo := new(MockRefreshTokenRepository)
 		
-		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour)
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
 		ctx := context.Background()
@@ -530,7 +538,7 @@ func TestGetActiveSessions(t *testing.T) {
 		userRepo := new(MockUserRepository)
 		tokenRepo := new(MockRefreshTokenRepository)
 		
-		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour)
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
 		ctx := context.Background()

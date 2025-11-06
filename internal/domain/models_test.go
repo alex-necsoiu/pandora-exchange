@@ -1,4 +1,3 @@
-package domain
 package domain_test
 
 import (

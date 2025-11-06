@@ -1,10 +1,12 @@
 package repository_test
 
 import (
+	"bytes"
 	"context"
 	"testing"
 
 	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	"github.com/alex-necsoiu/pandora-exchange/internal/repository"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -16,6 +18,12 @@ const (
 	testDatabaseURL = "postgres://pandora:pandora_dev_secret@localhost:5432/pandora_dev?sslmode=disable"
 )
 
+// getTestLogger returns a logger for testing purposes
+func getTestLogger() *observability.Logger {
+	var buf bytes.Buffer
+	return observability.NewLoggerWithWriter("dev", "test-service", &buf)
+}
+
 // TestUserRepository_Create tests user creation.
 func TestUserRepository_Create(t *testing.T) {
 	if testing.Short() {
@@ -25,7 +33,7 @@ func TestUserRepository_Create(t *testing.T) {
 	pool, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := repository.NewUserRepository(pool)
+	repo := repository.NewUserRepository(pool, getTestLogger())
 	ctx := context.Background()
 
 	t.Run("create user successfully", func(t *testing.T) {
@@ -78,7 +86,7 @@ func TestUserRepository_GetByID(t *testing.T) {
 	pool, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := repository.NewUserRepository(pool)
+	repo := repository.NewUserRepository(pool, getTestLogger())
 	ctx := context.Background()
 
 	t.Run("get existing user by ID", func(t *testing.T) {
@@ -125,7 +133,7 @@ func TestUserRepository_GetByEmail(t *testing.T) {
 	pool, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := repository.NewUserRepository(pool)
+	repo := repository.NewUserRepository(pool, getTestLogger())
 	ctx := context.Background()
 
 	t.Run("get existing user by email", func(t *testing.T) {
@@ -166,7 +174,7 @@ func TestUserRepository_UpdateKYCStatus(t *testing.T) {
 	pool, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := repository.NewUserRepository(pool)
+	repo := repository.NewUserRepository(pool, getTestLogger())
 	ctx := context.Background()
 
 	t.Run("update KYC status to verified", func(t *testing.T) {
@@ -218,7 +226,7 @@ func TestUserRepository_UpdateProfile(t *testing.T) {
 	pool, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := repository.NewUserRepository(pool)
+	repo := repository.NewUserRepository(pool, getTestLogger())
 	ctx := context.Background()
 
 	t.Run("update full name", func(t *testing.T) {
@@ -258,7 +266,7 @@ func TestUserRepository_SoftDelete(t *testing.T) {
 	pool, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := repository.NewUserRepository(pool)
+	repo := repository.NewUserRepository(pool, getTestLogger())
 	ctx := context.Background()
 
 	t.Run("soft delete user", func(t *testing.T) {
@@ -304,7 +312,7 @@ func TestUserRepository_List(t *testing.T) {
 	pool, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := repository.NewUserRepository(pool)
+	repo := repository.NewUserRepository(pool, getTestLogger())
 	ctx := context.Background()
 
 	t.Run("list users with pagination", func(t *testing.T) {
@@ -368,7 +376,7 @@ func TestUserRepository_Count(t *testing.T) {
 	pool, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	repo := repository.NewUserRepository(pool)
+	repo := repository.NewUserRepository(pool, getTestLogger())
 	ctx := context.Background()
 
 	t.Run("count active users", func(t *testing.T) {

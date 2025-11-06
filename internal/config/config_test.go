@@ -1,5 +1,4 @@
 package config_test
-package config_test
 
 import (
 	"os"

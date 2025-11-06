@@ -1,16 +1,24 @@
 package repository_test
 
 import (
+	"bytes"
 	"context"
 	"testing"
 	"time"
 
 	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	"github.com/alex-necsoiu/pandora-exchange/internal/repository"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// getRefreshTokenTestLogger returns a logger for testing purposes
+func getRefreshTokenTestLogger() *observability.Logger {
+	var buf bytes.Buffer
+	return observability.NewLoggerWithWriter("dev", "test-service", &buf)
+}
 
 // TestRefreshTokenRepository_Create tests refresh token creation.
 func TestRefreshTokenRepository_Create(t *testing.T) {
@@ -21,8 +29,8 @@ func TestRefreshTokenRepository_Create(t *testing.T) {
 	pool, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	userRepo := repository.NewUserRepository(pool)
-	tokenRepo := repository.NewRefreshTokenRepository(pool)
+	userRepo := repository.NewUserRepository(pool, getRefreshTokenTestLogger())
+	tokenRepo := repository.NewRefreshTokenRepository(pool, getRefreshTokenTestLogger())
 	ctx := context.Background()
 
 	t.Run("create refresh token successfully", func(t *testing.T) {
@@ -73,8 +81,8 @@ func TestRefreshTokenRepository_Get(t *testing.T) {
 	pool, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	userRepo := repository.NewUserRepository(pool)
-	tokenRepo := repository.NewRefreshTokenRepository(pool)
+	userRepo := repository.NewUserRepository(pool, getRefreshTokenTestLogger())
+	tokenRepo := repository.NewRefreshTokenRepository(pool, getRefreshTokenTestLogger())
 	ctx := context.Background()
 
 	t.Run("get existing token", func(t *testing.T) {
@@ -110,8 +118,8 @@ func TestRefreshTokenRepository_Revoke(t *testing.T) {
 	pool, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	userRepo := repository.NewUserRepository(pool)
-	tokenRepo := repository.NewRefreshTokenRepository(pool)
+	userRepo := repository.NewUserRepository(pool, getRefreshTokenTestLogger())
+	tokenRepo := repository.NewRefreshTokenRepository(pool, getRefreshTokenTestLogger())
 	ctx := context.Background()
 
 	t.Run("revoke token successfully", func(t *testing.T) {
@@ -150,8 +158,8 @@ func TestRefreshTokenRepository_RevokeAllForUser(t *testing.T) {
 	pool, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	userRepo := repository.NewUserRepository(pool)
-	tokenRepo := repository.NewRefreshTokenRepository(pool)
+	userRepo := repository.NewUserRepository(pool, getRefreshTokenTestLogger())
+	tokenRepo := repository.NewRefreshTokenRepository(pool, getRefreshTokenTestLogger())
 	ctx := context.Background()
 
 	t.Run("revoke all tokens for user", func(t *testing.T) {
@@ -213,8 +221,8 @@ func TestRefreshTokenRepository_GetActiveForUser(t *testing.T) {
 	pool, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	userRepo := repository.NewUserRepository(pool)
-	tokenRepo := repository.NewRefreshTokenRepository(pool)
+	userRepo := repository.NewUserRepository(pool, getRefreshTokenTestLogger())
+	tokenRepo := repository.NewRefreshTokenRepository(pool, getRefreshTokenTestLogger())
 	ctx := context.Background()
 
 	t.Run("get active tokens for user", func(t *testing.T) {
@@ -285,8 +293,8 @@ func TestRefreshTokenRepository_CountActiveForUser(t *testing.T) {
 	pool, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	userRepo := repository.NewUserRepository(pool)
-	tokenRepo := repository.NewRefreshTokenRepository(pool)
+	userRepo := repository.NewUserRepository(pool, getRefreshTokenTestLogger())
+	tokenRepo := repository.NewRefreshTokenRepository(pool, getRefreshTokenTestLogger())
 	ctx := context.Background()
 
 	t.Run("count active tokens", func(t *testing.T) {
@@ -334,8 +342,8 @@ func TestRefreshTokenRepository_DeleteExpired(t *testing.T) {
 	pool, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	userRepo := repository.NewUserRepository(pool)
-	tokenRepo := repository.NewRefreshTokenRepository(pool)
+	userRepo := repository.NewUserRepository(pool, getRefreshTokenTestLogger())
+	tokenRepo := repository.NewRefreshTokenRepository(pool, getRefreshTokenTestLogger())
 	ctx := context.Background()
 
 	t.Run("delete expired tokens", func(t *testing.T) {
