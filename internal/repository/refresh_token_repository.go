@@ -64,9 +64,9 @@ func (r *RefreshTokenRepository) Create(ctx context.Context, token string, userI
 	return dbRefreshTokenToDomain(&dbToken), nil
 }
 
-// Get retrieves a refresh token by its token value.
+// GetByToken retrieves a refresh token by its token value.
 // Returns domain.ErrRefreshTokenNotFound if token doesn't exist.
-func (r *RefreshTokenRepository) Get(ctx context.Context, token string) (*domain.RefreshToken, error) {
+func (r *RefreshTokenRepository) GetByToken(ctx context.Context, token string) (*domain.RefreshToken, error) {
 	r.logger.Debug("Getting refresh token")
 	
 	dbToken, err := r.queries.GetRefreshToken(ctx, token)
@@ -124,8 +124,8 @@ func (r *RefreshTokenRepository) RevokeAllForUser(ctx context.Context, userID uu
 	return nil
 }
 
-// GetActiveForUser retrieves all active (non-revoked, non-expired) tokens for a user.
-func (r *RefreshTokenRepository) GetActiveForUser(ctx context.Context, userID uuid.UUID) ([]*domain.RefreshToken, error) {
+// GetActiveTokensForUser retrieves all active (non-revoked, non-expired) tokens for a user.
+func (r *RefreshTokenRepository) GetActiveTokensForUser(ctx context.Context, userID uuid.UUID) ([]*domain.RefreshToken, error) {
 	r.logger.WithField("user_id", userID).Debug("Getting active tokens for user")
 	
 	dbTokens, err := r.queries.GetUserActiveTokens(ctx, userID)

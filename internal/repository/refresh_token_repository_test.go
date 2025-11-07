@@ -95,7 +95,7 @@ func TestRefreshTokenRepository_Get(t *testing.T) {
 		created, err := tokenRepo.Create(ctx, tokenString, user.ID, expiresAt, "1.2.3.4", "Agent")
 		require.NoError(t, err)
 
-		retrieved, err := tokenRepo.Get(ctx, tokenString)
+		retrieved, err := tokenRepo.GetByToken(ctx, tokenString)
 		require.NoError(t, err)
 		assert.Equal(t, created.Token, retrieved.Token)
 		assert.Equal(t, created.UserID, retrieved.UserID)
@@ -104,7 +104,7 @@ func TestRefreshTokenRepository_Get(t *testing.T) {
 	})
 
 	t.Run("get non-existent token returns error", func(t *testing.T) {
-		_, err := tokenRepo.Get(ctx, "nonexistent_token")
+		_, err := tokenRepo.GetByToken(ctx, "nonexistent_token")
 		assert.ErrorIs(t, err, domain.ErrRefreshTokenNotFound)
 	})
 }
@@ -136,7 +136,7 @@ func TestRefreshTokenRepository_Revoke(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify token is revoked
-		token, err := tokenRepo.Get(ctx, tokenString)
+		token, err := tokenRepo.GetByToken(ctx, tokenString)
 		require.NoError(t, err)
 		assert.True(t, token.IsRevoked())
 		assert.False(t, token.IsActive())
@@ -185,20 +185,20 @@ func TestRefreshTokenRepository_RevokeAllForUser(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify all tokens are revoked
-		t1, err := tokenRepo.Get(ctx, token1)
+		t1, err := tokenRepo.GetByToken(ctx, token1)
 		require.NoError(t, err)
 		assert.True(t, t1.IsRevoked())
 
-		t2, err := tokenRepo.Get(ctx, token2)
+		t2, err := tokenRepo.GetByToken(ctx, token2)
 		require.NoError(t, err)
 		assert.True(t, t2.IsRevoked())
 
-		t3, err := tokenRepo.Get(ctx, token3)
+		t3, err := tokenRepo.GetByToken(ctx, token3)
 		require.NoError(t, err)
 		assert.True(t, t3.IsRevoked())
 
 		// Verify no active tokens
-		activeTokens, err := tokenRepo.GetActiveForUser(ctx, user.ID)
+		activeTokens, err := tokenRepo.GetActiveTokensForUser(ctx, user.ID)
 		require.NoError(t, err)
 		assert.Empty(t, activeTokens)
 	})
@@ -247,7 +247,7 @@ func TestRefreshTokenRepository_GetActiveForUser(t *testing.T) {
 		require.NoError(t, err)
 
 		// Get active tokens
-		activeTokens, err := tokenRepo.GetActiveForUser(ctx, user.ID)
+		activeTokens, err := tokenRepo.GetActiveTokensForUser(ctx, user.ID)
 		require.NoError(t, err)
 		assert.Len(t, activeTokens, 2)
 
@@ -269,7 +269,7 @@ func TestRefreshTokenRepository_GetActiveForUser(t *testing.T) {
 		require.NoError(t, err)
 
 		// Get active tokens
-		activeTokens, err := tokenRepo.GetActiveForUser(ctx, user.ID)
+		activeTokens, err := tokenRepo.GetActiveTokensForUser(ctx, user.ID)
 		require.NoError(t, err)
 		assert.Empty(t, activeTokens)
 	})
@@ -278,7 +278,7 @@ func TestRefreshTokenRepository_GetActiveForUser(t *testing.T) {
 		user, err := userRepo.Create(ctx, generateTestEmail(), "No Active User", "pass")
 		require.NoError(t, err)
 
-		activeTokens, err := tokenRepo.GetActiveForUser(ctx, user.ID)
+		activeTokens, err := tokenRepo.GetActiveTokensForUser(ctx, user.ID)
 		require.NoError(t, err)
 		assert.Empty(t, activeTokens)
 	})
@@ -367,11 +367,11 @@ func TestRefreshTokenRepository_DeleteExpired(t *testing.T) {
 		require.NoError(t, err)
 
 		// Expired token should not exist
-		_, err = tokenRepo.Get(ctx, expiredToken)
+		_, err = tokenRepo.GetByToken(ctx, expiredToken)
 		assert.ErrorIs(t, err, domain.ErrRefreshTokenNotFound)
 
 		// Active token should still exist
-		token, err := tokenRepo.Get(ctx, activeToken)
+		token, err := tokenRepo.GetByToken(ctx, activeToken)
 		require.NoError(t, err)
 		assert.Equal(t, activeToken, token.Token)
 	})
