@@ -26,8 +26,8 @@ type MockUserRepository struct {
 	mock.Mock
 }
 
-func (m *MockUserRepository) Create(ctx context.Context, email, fullName, hashedPassword string) (*domain.User, error) {
-	args := m.Called(ctx, email, fullName, hashedPassword)
+func (m *MockUserRepository) Create(ctx context.Context, email, firstName, lastName, hashedPassword string) (*domain.User, error) {
+	args := m.Called(ctx, email, firstName, lastName, hashedPassword)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -58,8 +58,8 @@ func (m *MockUserRepository) UpdateKYCStatus(ctx context.Context, id uuid.UUID, 
 	return args.Get(0).(*domain.User), args.Error(1)
 }
 
-func (m *MockUserRepository) UpdateProfile(ctx context.Context, id uuid.UUID, fullName string) (*domain.User, error) {
-	args := m.Called(ctx, id, fullName)
+func (m *MockUserRepository) UpdateProfile(ctx context.Context, id uuid.UUID, firstName, lastName string) (*domain.User, error) {
+	args := m.Called(ctx, id, firstName, lastName)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -82,6 +82,30 @@ func (m *MockUserRepository) List(ctx context.Context, limit, offset int) ([]*do
 func (m *MockUserRepository) Count(ctx context.Context) (int64, error) {
 	args := m.Called(ctx)
 	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *MockUserRepository) SearchUsers(ctx context.Context, query string, limit, offset int) ([]*domain.User, error) {
+	args := m.Called(ctx, query, limit, offset)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.User), args.Error(1)
+}
+
+func (m *MockUserRepository) UpdateRole(ctx context.Context, id uuid.UUID, role domain.Role) (*domain.User, error) {
+	args := m.Called(ctx, id, role)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.User), args.Error(1)
+}
+
+func (m *MockUserRepository) GetByIDIncludeDeleted(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.User), args.Error(1)
 }
 
 // MockRefreshTokenRepository is a mock implementation of domain.RefreshTokenRepository
@@ -133,6 +157,24 @@ func (m *MockRefreshTokenRepository) DeleteExpired(ctx context.Context) error {
 	return args.Error(0)
 }
 
+func (m *MockRefreshTokenRepository) GetAllActiveSessions(ctx context.Context, limit, offset int) ([]*domain.RefreshToken, error) {
+	args := m.Called(ctx, limit, offset)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*domain.RefreshToken), args.Error(1)
+}
+
+func (m *MockRefreshTokenRepository) CountAllActiveSessions(ctx context.Context) (int64, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(int64), args.Error(1)
+}
+
+func (m *MockRefreshTokenRepository) RevokeToken(ctx context.Context, token string) error {
+	args := m.Called(ctx, token)
+	return args.Error(0)
+}
+
 // TestRegister tests user registration
 func TestRegister(t *testing.T) {
 	t.Run("register user successfully", func(t *testing.T) {
@@ -145,30 +187,33 @@ func TestRegister(t *testing.T) {
 		ctx := context.Background()
 		email := "test@example.com"
 		password := "SecurePassword123!"
-		fullName := "Test User"
+		firstName := "Test"
+		lastName := "User"
 
 		expectedUser := &domain.User{
 			ID:        uuid.New(),
 			Email:     email,
-			FullName:  fullName,
+			FirstName: firstName,
+			LastName:  lastName,
 			KYCStatus: domain.KYCStatusPending,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}
 
-		userRepo.On("Create", ctx, email, fullName, mock.AnythingOfType("string")).
+		userRepo.On("Create", ctx, email, firstName, lastName, mock.AnythingOfType("string")).
 			Return(expectedUser, nil)
 
-		user, err := svc.Register(ctx, email, password, fullName)
+		user, err := svc.Register(ctx, email, password, firstName, lastName)
 		require.NoError(t, err)
 		assert.Equal(t, email, user.Email)
-		assert.Equal(t, fullName, user.FullName)
+		assert.Equal(t, firstName, user.FirstName)
+		assert.Equal(t, lastName, user.LastName)
 		assert.Equal(t, domain.KYCStatusPending, user.KYCStatus)
 
 		userRepo.AssertExpectations(t)
 	})
 
-	t.Run("register with existing email fails", func(t *testing.T) {
+	t.Run("register fails if user already exists", func(t *testing.T) {
 		userRepo := new(MockUserRepository)
 		tokenRepo := new(MockRefreshTokenRepository)
 		
@@ -176,10 +221,10 @@ func TestRegister(t *testing.T) {
 		require.NoError(t, err)
 
 		ctx := context.Background()
-		userRepo.On("Create", ctx, "existing@example.com", "User", mock.AnythingOfType("string")).
+		userRepo.On("Create", ctx, "existing@example.com", "Test", "User", mock.AnythingOfType("string")).
 			Return(nil, domain.ErrUserAlreadyExists)
 
-		_, err = svc.Register(ctx, "existing@example.com", "password123", "User")
+		_, err = svc.Register(ctx, "existing@example.com", "password123", "Test", "User")
 		assert.ErrorIs(t, err, domain.ErrUserAlreadyExists)
 
 		userRepo.AssertExpectations(t)
@@ -192,7 +237,7 @@ func TestRegister(t *testing.T) {
 		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
-		_, err = svc.Register(context.Background(), "test@example.com", "", "User")
+		_, err = svc.Register(context.Background(), "test@example.com", "", "Test", "User")
 		assert.Error(t, err)
 	})
 
@@ -203,7 +248,7 @@ func TestRegister(t *testing.T) {
 		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
 		require.NoError(t, err)
 
-		_, err = svc.Register(context.Background(), "", "password123", "User")
+		_, err = svc.Register(context.Background(), "", "password123", "Test", "User")
 		assert.Error(t, err)
 	})
 }
@@ -476,17 +521,20 @@ func TestUpdateProfile(t *testing.T) {
 
 		ctx := context.Background()
 		userID := uuid.New()
-		newName := "Updated Name"
+		newFirstName := "Updated"
+		newLastName := "Name"
 		updatedUser := &domain.User{
 			ID:       userID,
-			FullName: newName,
+			FirstName: newFirstName,
+			LastName:  newLastName,
 		}
 
-		userRepo.On("UpdateProfile", ctx, userID, newName).Return(updatedUser, nil)
+		userRepo.On("UpdateProfile", ctx, userID, newFirstName, newLastName).Return(updatedUser, nil)
 
-		user, err := svc.UpdateProfile(ctx, userID, newName)
+		user, err := svc.UpdateProfile(ctx, userID, newFirstName, newLastName)
 		require.NoError(t, err)
-		assert.Equal(t, newName, user.FullName)
+		assert.Equal(t, newFirstName, user.FirstName)
+		assert.Equal(t, newLastName, user.LastName)
 
 		userRepo.AssertExpectations(t)
 	})
@@ -554,6 +602,516 @@ func TestGetActiveSessions(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, sessions, 2)
 
+		tokenRepo.AssertExpectations(t)
+	})
+}
+
+// TestListUsers tests listing users with pagination (admin operation)
+func TestListUsers(t *testing.T) {
+	t.Run("list users successfully", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		users := []*domain.User{
+			{ID: uuid.New(), Email: "user1@example.com", Role: domain.RoleUser},
+			{ID: uuid.New(), Email: "user2@example.com", Role: domain.RoleAdmin},
+		}
+		totalCount := int64(10)
+
+		userRepo.On("List", ctx, 10, 0).Return(users, nil)
+		userRepo.On("Count", ctx).Return(totalCount, nil)
+
+		result, count, err := svc.ListUsers(ctx, 10, 0)
+		require.NoError(t, err)
+		assert.Len(t, result, 2)
+		assert.Equal(t, totalCount, count)
+
+		userRepo.AssertExpectations(t)
+	})
+
+	t.Run("list users with repository error", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		expectedErr := assert.AnError
+
+		userRepo.On("List", ctx, 10, 0).Return(nil, expectedErr)
+
+		_, _, err = svc.ListUsers(ctx, 10, 0)
+		assert.ErrorIs(t, err, expectedErr)
+
+		userRepo.AssertExpectations(t)
+	})
+
+	t.Run("list users with count error", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		users := []*domain.User{
+			{ID: uuid.New(), Email: "user1@example.com"},
+		}
+		expectedErr := assert.AnError
+
+		userRepo.On("List", ctx, 10, 0).Return(users, nil)
+		userRepo.On("Count", ctx).Return(int64(0), expectedErr)
+
+		_, _, err = svc.ListUsers(ctx, 10, 0)
+		assert.ErrorIs(t, err, expectedErr)
+
+		userRepo.AssertExpectations(t)
+	})
+}
+
+// TestSearchUsers tests searching users (admin operation)
+func TestSearchUsers(t *testing.T) {
+	t.Run("search users successfully", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		query := "alice"
+		users := []*domain.User{
+			{ID: uuid.New(), Email: "alice@example.com", FirstName: "Alice", LastName: "Smith"},
+			{ID: uuid.New(), Email: "alice.jones@example.com", FirstName: "Alice", LastName: "Jones"},
+		}
+
+		userRepo.On("SearchUsers", ctx, query, 10, 0).Return(users, nil)
+
+		result, err := svc.SearchUsers(ctx, query, 10, 0)
+		require.NoError(t, err)
+		assert.Len(t, result, 2)
+
+		userRepo.AssertExpectations(t)
+	})
+
+	t.Run("search users with empty results", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		query := "nonexistent"
+
+		userRepo.On("SearchUsers", ctx, query, 10, 0).Return([]*domain.User{}, nil)
+
+		result, err := svc.SearchUsers(ctx, query, 10, 0)
+		require.NoError(t, err)
+		assert.Empty(t, result)
+
+		userRepo.AssertExpectations(t)
+	})
+
+	t.Run("search users with repository error", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		query := "test"
+		expectedErr := assert.AnError
+
+		userRepo.On("SearchUsers", ctx, query, 10, 0).Return(nil, expectedErr)
+
+		_, err = svc.SearchUsers(ctx, query, 10, 0)
+		assert.ErrorIs(t, err, expectedErr)
+
+		userRepo.AssertExpectations(t)
+	})
+}
+
+// TestGetUserByIDAdmin tests getting user by ID including deleted (admin operation)
+func TestGetUserByIDAdmin(t *testing.T) {
+	t.Run("get active user successfully", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		userID := uuid.New()
+		user := &domain.User{
+			ID:    userID,
+			Email: "user@example.com",
+			Role:  domain.RoleUser,
+		}
+
+		userRepo.On("GetByIDIncludeDeleted", ctx, userID).Return(user, nil)
+
+		result, err := svc.GetUserByIDAdmin(ctx, userID)
+		require.NoError(t, err)
+		assert.Equal(t, userID, result.ID)
+
+		userRepo.AssertExpectations(t)
+	})
+
+	t.Run("get deleted user successfully", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		userID := uuid.New()
+		deletedAt := time.Now()
+		user := &domain.User{
+			ID:        userID,
+			Email:     "deleted@example.com",
+			DeletedAt: &deletedAt,
+		}
+
+		userRepo.On("GetByIDIncludeDeleted", ctx, userID).Return(user, nil)
+
+		result, err := svc.GetUserByIDAdmin(ctx, userID)
+		require.NoError(t, err)
+		assert.True(t, result.IsDeleted())
+
+		userRepo.AssertExpectations(t)
+	})
+
+	t.Run("get non-existent user fails", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		userID := uuid.New()
+
+		userRepo.On("GetByIDIncludeDeleted", ctx, userID).Return(nil, domain.ErrUserNotFound)
+
+		_, err = svc.GetUserByIDAdmin(ctx, userID)
+		assert.ErrorIs(t, err, domain.ErrUserNotFound)
+
+		userRepo.AssertExpectations(t)
+	})
+}
+
+// TestUpdateUserRole tests updating user role (admin operation)
+func TestUpdateUserRole(t *testing.T) {
+	t.Run("promote user to admin successfully", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		userID := uuid.New()
+		updatedUser := &domain.User{
+			ID:    userID,
+			Email: "user@example.com",
+			Role:  domain.RoleAdmin,
+		}
+
+		userRepo.On("UpdateRole", ctx, userID, domain.RoleAdmin).Return(updatedUser, nil)
+
+		result, err := svc.UpdateUserRole(ctx, userID, domain.RoleAdmin)
+		require.NoError(t, err)
+		assert.Equal(t, domain.RoleAdmin, result.Role)
+		assert.True(t, result.IsAdmin())
+
+		userRepo.AssertExpectations(t)
+	})
+
+	t.Run("demote admin to user successfully", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		userID := uuid.New()
+		updatedUser := &domain.User{
+			ID:    userID,
+			Email: "admin@example.com",
+			Role:  domain.RoleUser,
+		}
+
+		userRepo.On("UpdateRole", ctx, userID, domain.RoleUser).Return(updatedUser, nil)
+
+		result, err := svc.UpdateUserRole(ctx, userID, domain.RoleUser)
+		require.NoError(t, err)
+		assert.Equal(t, domain.RoleUser, result.Role)
+		assert.False(t, result.IsAdmin())
+
+		userRepo.AssertExpectations(t)
+	})
+
+	t.Run("update with invalid role fails", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		userID := uuid.New()
+		invalidRole := domain.Role("superadmin")
+
+		// Service validates role before calling repository, so no mock setup needed
+
+		_, err = svc.UpdateUserRole(ctx, userID, invalidRole)
+		assert.ErrorIs(t, err, domain.ErrInvalidRole)
+
+		// No repository calls should be made
+		userRepo.AssertExpectations(t)
+	})
+
+	t.Run("update non-existent user fails", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		userID := uuid.New()
+
+		userRepo.On("UpdateRole", ctx, userID, domain.RoleAdmin).Return(nil, domain.ErrUserNotFound)
+
+		_, err = svc.UpdateUserRole(ctx, userID, domain.RoleAdmin)
+		assert.ErrorIs(t, err, domain.ErrUserNotFound)
+
+		userRepo.AssertExpectations(t)
+	})
+}
+
+// TestGetAllActiveSessions tests listing all active sessions (admin operation)
+func TestGetAllActiveSessions(t *testing.T) {
+	t.Run("get all sessions successfully", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		sessions := []*domain.RefreshToken{
+			{Token: "token1", UserID: uuid.New(), IPAddress: "192.168.1.1"},
+			{Token: "token2", UserID: uuid.New(), IPAddress: "192.168.1.2"},
+			{Token: "token3", UserID: uuid.New(), IPAddress: "10.0.0.1"},
+		}
+		totalCount := int64(25)
+
+		tokenRepo.On("GetAllActiveSessions", ctx, 10, 0).Return(sessions, nil)
+		tokenRepo.On("CountAllActiveSessions", ctx).Return(totalCount, nil)
+
+		result, count, err := svc.GetAllActiveSessions(ctx, 10, 0)
+		require.NoError(t, err)
+		assert.Len(t, result, 3)
+		assert.Equal(t, totalCount, count)
+
+		tokenRepo.AssertExpectations(t)
+	})
+
+	t.Run("get sessions with pagination", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		sessions := []*domain.RefreshToken{
+			{Token: "token1", UserID: uuid.New()},
+			{Token: "token2", UserID: uuid.New()},
+		}
+		totalCount := int64(10)
+
+		tokenRepo.On("GetAllActiveSessions", ctx, 2, 4).Return(sessions, nil)
+		tokenRepo.On("CountAllActiveSessions", ctx).Return(totalCount, nil)
+
+		result, count, err := svc.GetAllActiveSessions(ctx, 2, 4)
+		require.NoError(t, err)
+		assert.Len(t, result, 2)
+		assert.Equal(t, totalCount, count)
+
+		tokenRepo.AssertExpectations(t)
+	})
+
+	t.Run("get sessions with repository error", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		expectedErr := assert.AnError
+
+		tokenRepo.On("GetAllActiveSessions", ctx, 10, 0).Return(nil, expectedErr)
+
+		_, _, err = svc.GetAllActiveSessions(ctx, 10, 0)
+		assert.ErrorIs(t, err, expectedErr)
+
+		tokenRepo.AssertExpectations(t)
+	})
+
+	t.Run("get sessions with count error", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		sessions := []*domain.RefreshToken{
+			{Token: "token1", UserID: uuid.New()},
+		}
+		expectedErr := assert.AnError
+
+		tokenRepo.On("GetAllActiveSessions", ctx, 10, 0).Return(sessions, nil)
+		tokenRepo.On("CountAllActiveSessions", ctx).Return(int64(0), expectedErr)
+
+		_, _, err = svc.GetAllActiveSessions(ctx, 10, 0)
+		assert.ErrorIs(t, err, expectedErr)
+
+		tokenRepo.AssertExpectations(t)
+	})
+}
+
+// TestForceLogout tests force logout by admin
+func TestForceLogout(t *testing.T) {
+	t.Run("force logout successfully", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		token := "session_token_to_revoke"
+
+		tokenRepo.On("RevokeToken", ctx, token).Return(nil)
+
+		err = svc.ForceLogout(ctx, token)
+		require.NoError(t, err)
+
+		tokenRepo.AssertExpectations(t)
+	})
+
+	t.Run("force logout non-existent token fails", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		token := "nonexistent_token"
+
+		tokenRepo.On("RevokeToken", ctx, token).Return(domain.ErrTokenNotFound)
+
+		err = svc.ForceLogout(ctx, token)
+		assert.ErrorIs(t, err, domain.ErrTokenNotFound)
+
+		tokenRepo.AssertExpectations(t)
+	})
+
+	t.Run("force logout with repository error", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		token := "error_token"
+		expectedErr := assert.AnError
+
+		tokenRepo.On("RevokeToken", ctx, token).Return(expectedErr)
+
+		err = svc.ForceLogout(ctx, token)
+		assert.ErrorIs(t, err, expectedErr)
+
+		tokenRepo.AssertExpectations(t)
+	})
+}
+
+// TestGetSystemStats tests getting system statistics (admin operation)
+func TestGetSystemStats(t *testing.T) {
+	t.Run("get system stats successfully", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		totalCount := int64(10)
+		activeSessionCount := int64(5)
+
+		userRepo.On("Count", ctx).Return(totalCount, nil)
+		tokenRepo.On("CountAllActiveSessions", ctx).Return(activeSessionCount, nil)
+
+		stats, err := svc.GetSystemStats(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, totalCount, stats["total_users"])
+		assert.Equal(t, activeSessionCount, stats["active_sessions"])
+
+		userRepo.AssertExpectations(t)
+		tokenRepo.AssertExpectations(t)
+	})
+
+	t.Run("get stats with repository error on count", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		expectedErr := assert.AnError
+
+		userRepo.On("Count", ctx).Return(int64(0), expectedErr)
+
+		_, err = svc.GetSystemStats(ctx)
+		assert.ErrorIs(t, err, expectedErr)
+
+		userRepo.AssertExpectations(t)
+	})
+
+	t.Run("get stats with repository error on session count", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+		
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		totalCount := int64(10)
+		expectedErr := assert.AnError
+
+		userRepo.On("Count", ctx).Return(totalCount, nil)
+		tokenRepo.On("CountAllActiveSessions", ctx).Return(int64(0), expectedErr)
+
+		_, err = svc.GetSystemStats(ctx)
+		assert.ErrorIs(t, err, expectedErr)
+
+		userRepo.AssertExpectations(t)
 		tokenRepo.AssertExpectations(t)
 	})
 }

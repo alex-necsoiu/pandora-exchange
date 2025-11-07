@@ -35,7 +35,7 @@ func TestRefreshTokenRepository_Create(t *testing.T) {
 
 	t.Run("create refresh token successfully", func(t *testing.T) {
 		// Create test user
-		user, err := userRepo.Create(ctx, generateTestEmail(), "Token User", "pass")
+		user, err := userRepo.Create(ctx, generateTestEmail(), "Token", "User", "pass")
 		require.NoError(t, err)
 
 		// Create refresh token
@@ -59,7 +59,7 @@ func TestRefreshTokenRepository_Create(t *testing.T) {
 	})
 
 	t.Run("create token with empty audit fields", func(t *testing.T) {
-		user, err := userRepo.Create(ctx, generateTestEmail(), "User 2", "pass")
+		user, err := userRepo.Create(ctx, generateTestEmail(), "User", "2", "pass")
 		require.NoError(t, err)
 
 		tokenString := "test_token_" + uuid.New().String()
@@ -86,7 +86,7 @@ func TestRefreshTokenRepository_Get(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("get existing token", func(t *testing.T) {
-		user, err := userRepo.Create(ctx, generateTestEmail(), "Get User", "pass")
+		user, err := userRepo.Create(ctx, generateTestEmail(), "Get", "User", "pass")
 		require.NoError(t, err)
 
 		tokenString := "get_token_" + uuid.New().String()
@@ -123,7 +123,7 @@ func TestRefreshTokenRepository_Revoke(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("revoke token successfully", func(t *testing.T) {
-		user, err := userRepo.Create(ctx, generateTestEmail(), "Revoke User", "pass")
+		user, err := userRepo.Create(ctx, generateTestEmail(), "Revoke", "User", "pass")
 		require.NoError(t, err)
 
 		tokenString := "revoke_token_" + uuid.New().String()
@@ -163,7 +163,7 @@ func TestRefreshTokenRepository_RevokeAllForUser(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("revoke all tokens for user", func(t *testing.T) {
-		user, err := userRepo.Create(ctx, generateTestEmail(), "Multi Token User", "pass")
+		user, err := userRepo.Create(ctx, generateTestEmail(), "Multi", "User", "pass")
 		require.NoError(t, err)
 
 		expiresAt := time.Now().Add(7 * 24 * time.Hour)
@@ -204,7 +204,7 @@ func TestRefreshTokenRepository_RevokeAllForUser(t *testing.T) {
 	})
 
 	t.Run("revoke all for user with no tokens succeeds", func(t *testing.T) {
-		user, err := userRepo.Create(ctx, generateTestEmail(), "No Tokens User", "pass")
+		user, err := userRepo.Create(ctx, generateTestEmail(), "No", "User", "pass")
 		require.NoError(t, err)
 
 		err = tokenRepo.RevokeAllForUser(ctx, user.ID)
@@ -226,7 +226,7 @@ func TestRefreshTokenRepository_GetActiveForUser(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("get active tokens for user", func(t *testing.T) {
-		user, err := userRepo.Create(ctx, generateTestEmail(), "Active User", "pass")
+		user, err := userRepo.Create(ctx, generateTestEmail(), "Active", "User", "pass")
 		require.NoError(t, err)
 
 		expiresAt := time.Now().Add(7 * 24 * time.Hour)
@@ -259,7 +259,7 @@ func TestRefreshTokenRepository_GetActiveForUser(t *testing.T) {
 	})
 
 	t.Run("get active tokens excludes expired", func(t *testing.T) {
-		user, err := userRepo.Create(ctx, generateTestEmail(), "Expired User", "pass")
+		user, err := userRepo.Create(ctx, generateTestEmail(), "Expired", "User", "pass")
 		require.NoError(t, err)
 
 		// Create expired token
@@ -275,7 +275,7 @@ func TestRefreshTokenRepository_GetActiveForUser(t *testing.T) {
 	})
 
 	t.Run("get active tokens for user with no tokens", func(t *testing.T) {
-		user, err := userRepo.Create(ctx, generateTestEmail(), "No Active User", "pass")
+		user, err := userRepo.Create(ctx, generateTestEmail(), "No", "User", "pass")
 		require.NoError(t, err)
 
 		activeTokens, err := tokenRepo.GetActiveTokensForUser(ctx, user.ID)
@@ -298,7 +298,7 @@ func TestRefreshTokenRepository_CountActiveForUser(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("count active tokens", func(t *testing.T) {
-		user, err := userRepo.Create(ctx, generateTestEmail(), "Count User", "pass")
+		user, err := userRepo.Create(ctx, generateTestEmail(), "Count", "User", "pass")
 		require.NoError(t, err)
 
 		expiresAt := time.Now().Add(7 * 24 * time.Hour)
@@ -347,7 +347,7 @@ func TestRefreshTokenRepository_DeleteExpired(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("delete expired tokens", func(t *testing.T) {
-		user, err := userRepo.Create(ctx, generateTestEmail(), "Cleanup User", "pass")
+		user, err := userRepo.Create(ctx, generateTestEmail(), "Cleanup", "User", "pass")
 		require.NoError(t, err)
 
 		// Create expired token
@@ -379,5 +379,279 @@ func TestRefreshTokenRepository_DeleteExpired(t *testing.T) {
 	t.Run("delete expired succeeds with no expired tokens", func(t *testing.T) {
 		err := tokenRepo.DeleteExpired(ctx)
 		assert.NoError(t, err)
+	})
+}
+
+// TestRefreshTokenRepository_GetAllActiveSessions tests admin session listing.
+func TestRefreshTokenRepository_GetAllActiveSessions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	pool, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	userRepo := repository.NewUserRepository(pool, getRefreshTokenTestLogger())
+	tokenRepo := repository.NewRefreshTokenRepository(pool, getRefreshTokenTestLogger())
+	ctx := context.Background()
+
+	t.Run("list all active sessions with pagination", func(t *testing.T) {
+		// Create multiple users with sessions
+		user1, err := userRepo.Create(ctx, generateTestEmail(), "Session", "User1", "pass")
+		require.NoError(t, err)
+		user2, err := userRepo.Create(ctx, generateTestEmail(), "Session", "User2", "pass")
+		require.NoError(t, err)
+
+		expiresAt := time.Now().Add(7 * 24 * time.Hour)
+
+		// Create 3 active sessions for user1
+		for i := 0; i < 3; i++ {
+			token := "session1_" + uuid.New().String()
+			_, err = tokenRepo.Create(ctx, token, user1.ID, expiresAt, "192.168.1."+string(rune('1'+i)), "Agent1")
+			require.NoError(t, err)
+		}
+
+		// Create 2 active sessions for user2
+		for i := 0; i < 2; i++ {
+			token := "session2_" + uuid.New().String()
+			_, err = tokenRepo.Create(ctx, token, user2.ID, expiresAt, "10.0.0."+string(rune('1'+i)), "Agent2")
+			require.NoError(t, err)
+		}
+
+		// Get all sessions (should have at least 5)
+		sessions, err := tokenRepo.GetAllActiveSessions(ctx, 100, 0)
+		require.NoError(t, err)
+		assert.GreaterOrEqual(t, len(sessions), 5)
+
+		// Verify all sessions are active
+		for _, session := range sessions {
+			assert.True(t, session.IsActive())
+			assert.Nil(t, session.RevokedAt)
+			assert.False(t, session.IsExpired())
+		}
+	})
+
+	t.Run("pagination works correctly", func(t *testing.T) {
+		user, err := userRepo.Create(ctx, generateTestEmail(), "Paginate", "Sessions", "pass")
+		require.NoError(t, err)
+
+		expiresAt := time.Now().Add(7 * 24 * time.Hour)
+
+		// Create 5 sessions
+		for i := 0; i < 5; i++ {
+			token := "page_session_" + uuid.New().String()
+			_, err = tokenRepo.Create(ctx, token, user.ID, expiresAt, "1.1.1.1", "Agent")
+			require.NoError(t, err)
+		}
+
+		// Get first 2
+		page1, err := tokenRepo.GetAllActiveSessions(ctx, 2, 0)
+		require.NoError(t, err)
+		assert.LessOrEqual(t, len(page1), 2)
+
+		// Get next 2
+		page2, err := tokenRepo.GetAllActiveSessions(ctx, 2, 2)
+		require.NoError(t, err)
+		assert.LessOrEqual(t, len(page2), 2)
+	})
+
+	t.Run("excludes revoked sessions", func(t *testing.T) {
+		user, err := userRepo.Create(ctx, generateTestEmail(), "Revoked", "Sessions", "pass")
+		require.NoError(t, err)
+
+		expiresAt := time.Now().Add(7 * 24 * time.Hour)
+
+		// Create active session
+		activeToken := "active_session_" + uuid.New().String()
+		_, err = tokenRepo.Create(ctx, activeToken, user.ID, expiresAt, "1.1.1.1", "Active")
+		require.NoError(t, err)
+
+		// Create revoked session
+		revokedToken := "revoked_session_" + uuid.New().String()
+		_, err = tokenRepo.Create(ctx, revokedToken, user.ID, expiresAt, "2.2.2.2", "Revoked")
+		require.NoError(t, err)
+		err = tokenRepo.Revoke(ctx, revokedToken)
+		require.NoError(t, err)
+
+		// Get all sessions - should not include revoked
+		sessions, err := tokenRepo.GetAllActiveSessions(ctx, 100, 0)
+		require.NoError(t, err)
+
+		for _, session := range sessions {
+			assert.NotEqual(t, revokedToken, session.Token)
+		}
+	})
+
+	t.Run("excludes expired sessions", func(t *testing.T) {
+		user, err := userRepo.Create(ctx, generateTestEmail(), "Expired", "Sessions", "pass")
+		require.NoError(t, err)
+
+		// Create expired session
+		expiredToken := "expired_session_" + uuid.New().String()
+		expiredTime := time.Now().Add(-1 * time.Hour)
+		_, err = tokenRepo.Create(ctx, expiredToken, user.ID, expiredTime, "1.1.1.1", "Expired")
+		require.NoError(t, err)
+
+		// Get all sessions - should not include expired
+		sessions, err := tokenRepo.GetAllActiveSessions(ctx, 100, 0)
+		require.NoError(t, err)
+
+		for _, session := range sessions {
+			assert.NotEqual(t, expiredToken, session.Token)
+			assert.False(t, session.IsExpired())
+		}
+	})
+}
+
+// TestRefreshTokenRepository_CountAllActiveSessions tests counting all active sessions.
+func TestRefreshTokenRepository_CountAllActiveSessions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	pool, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	userRepo := repository.NewUserRepository(pool, getRefreshTokenTestLogger())
+	tokenRepo := repository.NewRefreshTokenRepository(pool, getRefreshTokenTestLogger())
+	ctx := context.Background()
+
+	t.Run("count all active sessions across users", func(t *testing.T) {
+		initialCount, err := tokenRepo.CountAllActiveSessions(ctx)
+		require.NoError(t, err)
+
+		// Create multiple users with sessions
+		user1, err := userRepo.Create(ctx, generateTestEmail(), "Count", "User1", "pass")
+		require.NoError(t, err)
+		user2, err := userRepo.Create(ctx, generateTestEmail(), "Count", "User2", "pass")
+		require.NoError(t, err)
+
+		expiresAt := time.Now().Add(7 * 24 * time.Hour)
+
+		// Create 3 sessions for user1
+		for i := 0; i < 3; i++ {
+			token := "count1_" + uuid.New().String()
+			_, err = tokenRepo.Create(ctx, token, user1.ID, expiresAt, "1.1.1.1", "Agent")
+			require.NoError(t, err)
+		}
+
+		// Create 2 sessions for user2
+		for i := 0; i < 2; i++ {
+			token := "count2_" + uuid.New().String()
+			_, err = tokenRepo.Create(ctx, token, user2.ID, expiresAt, "2.2.2.2", "Agent")
+			require.NoError(t, err)
+		}
+
+		// Count should increase by 5
+		newCount, err := tokenRepo.CountAllActiveSessions(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, initialCount+5, newCount)
+	})
+
+	t.Run("count excludes revoked sessions", func(t *testing.T) {
+		beforeCount, err := tokenRepo.CountAllActiveSessions(ctx)
+		require.NoError(t, err)
+
+		user, err := userRepo.Create(ctx, generateTestEmail(), "Revoke", "Count", "pass")
+		require.NoError(t, err)
+
+		expiresAt := time.Now().Add(7 * 24 * time.Hour)
+
+		// Create session
+		token := "count_revoke_" + uuid.New().String()
+		_, err = tokenRepo.Create(ctx, token, user.ID, expiresAt, "1.1.1.1", "Agent")
+		require.NoError(t, err)
+
+		afterCreate, err := tokenRepo.CountAllActiveSessions(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, beforeCount+1, afterCreate)
+
+		// Revoke session
+		err = tokenRepo.Revoke(ctx, token)
+		require.NoError(t, err)
+
+		afterRevoke, err := tokenRepo.CountAllActiveSessions(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, beforeCount, afterRevoke)
+	})
+
+	t.Run("count excludes expired sessions", func(t *testing.T) {
+		beforeCount, err := tokenRepo.CountAllActiveSessions(ctx)
+		require.NoError(t, err)
+
+		user, err := userRepo.Create(ctx, generateTestEmail(), "Expire", "Count", "pass")
+		require.NoError(t, err)
+
+		// Create expired session
+		token := "count_expire_" + uuid.New().String()
+		expiredTime := time.Now().Add(-1 * time.Hour)
+		_, err = tokenRepo.Create(ctx, token, user.ID, expiredTime, "1.1.1.1", "Agent")
+		require.NoError(t, err)
+
+		// Count should not change
+		afterCreate, err := tokenRepo.CountAllActiveSessions(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, beforeCount, afterCreate)
+	})
+}
+
+// TestRefreshTokenRepository_RevokeToken tests revoking tokens by ID for admin operations.
+func TestRefreshTokenRepository_RevokeToken(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	pool, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	userRepo := repository.NewUserRepository(pool, getRefreshTokenTestLogger())
+	tokenRepo := repository.NewRefreshTokenRepository(pool, getRefreshTokenTestLogger())
+	ctx := context.Background()
+
+	t.Run("revoke token by token string successfully", func(t *testing.T) {
+		user, err := userRepo.Create(ctx, generateTestEmail(), "Admin", "Revoke", "pass")
+		require.NoError(t, err)
+
+		expiresAt := time.Now().Add(7 * 24 * time.Hour)
+		tokenString := "admin_revoke_" + uuid.New().String()
+
+		created, err := tokenRepo.Create(ctx, tokenString, user.ID, expiresAt, "1.1.1.1", "Agent")
+		require.NoError(t, err)
+		assert.Nil(t, created.RevokedAt)
+
+		// Admin revokes by token string
+		err = tokenRepo.RevokeToken(ctx, tokenString)
+		require.NoError(t, err)
+
+		// Verify token is revoked
+		token, err := tokenRepo.GetByToken(ctx, tokenString)
+		require.NoError(t, err)
+		assert.NotNil(t, token.RevokedAt)
+		assert.True(t, token.IsRevoked())
+		assert.False(t, token.IsActive())
+	})
+
+	t.Run("revoke non-existent token returns error", func(t *testing.T) {
+		err := tokenRepo.RevokeToken(ctx, "nonexistent_admin_token")
+		assert.ErrorIs(t, err, domain.ErrTokenNotFound)
+	})
+
+	t.Run("revoke already revoked token is idempotent", func(t *testing.T) {
+		user, err := userRepo.Create(ctx, generateTestEmail(), "Double", "Revoke", "pass")
+		require.NoError(t, err)
+
+		expiresAt := time.Now().Add(7 * 24 * time.Hour)
+		tokenString := "double_revoke_" + uuid.New().String()
+
+		_, err = tokenRepo.Create(ctx, tokenString, user.ID, expiresAt, "1.1.1.1", "Agent")
+		require.NoError(t, err)
+
+		// First revocation
+		err = tokenRepo.RevokeToken(ctx, tokenString)
+		require.NoError(t, err)
+
+		// Second revocation should succeed (idempotent)
+		err = tokenRepo.RevokeToken(ctx, tokenString)
+		assert.ErrorIs(t, err, domain.ErrTokenNotFound)
 	})
 }

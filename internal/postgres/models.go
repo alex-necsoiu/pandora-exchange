@@ -33,8 +33,6 @@ type User struct {
 	ID uuid.UUID `json:"id"`
 	// User email address (unique, used for login)
 	Email string `json:"email"`
-	// User full name (optional)
-	FullName *string `json:"full_name"`
 	// Argon2id hashed password
 	HashedPassword string `json:"hashed_password"`
 	// KYC verification status: pending, verified, or rejected
@@ -45,4 +43,8 @@ type User struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 	// Soft delete timestamp (NULL if not deleted)
 	DeletedAt pgtype.Timestamptz `json:"deleted_at"`
+	FirstName string             `json:"first_name"`
+	LastName  string             `json:"last_name"`
+	// User role for authorization: user (default) or admin
+	Role string `json:"role"`
 }

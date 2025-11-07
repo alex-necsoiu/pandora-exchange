@@ -8,6 +8,137 @@ import (
 	"github.com/google/uuid"
 )
 
+// TestRole_IsValid tests the Role.IsValid method.
+func TestRole_IsValid(t *testing.T) {
+	tests := []struct {
+		name string
+		role domain.Role
+		want bool
+	}{
+		{
+			name: "user role is valid",
+			role: domain.RoleUser,
+			want: true,
+		},
+		{
+			name: "admin role is valid",
+			role: domain.RoleAdmin,
+			want: true,
+		},
+		{
+			name: "invalid role",
+			role: domain.Role("invalid"),
+			want: false,
+		},
+		{
+			name: "empty role",
+			role: domain.Role(""),
+			want: false,
+		},
+		{
+			name: "uppercase ADMIN is invalid",
+			role: domain.Role("ADMIN"),
+			want: false,
+		},
+		{
+			name: "uppercase USER is invalid",
+			role: domain.Role("USER"),
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.role.IsValid(); got != tt.want {
+				t.Errorf("Role.IsValid() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestRole_String tests the Role.String method.
+func TestRole_String(t *testing.T) {
+	tests := []struct {
+		name string
+		role domain.Role
+		want string
+	}{
+		{
+			name: "user role to string",
+			role: domain.RoleUser,
+			want: "user",
+		},
+		{
+			name: "admin role to string",
+			role: domain.RoleAdmin,
+			want: "admin",
+		},
+		{
+			name: "custom role to string",
+			role: domain.Role("custom"),
+			want: "custom",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.role.String(); got != tt.want {
+				t.Errorf("Role.String() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestUser_IsAdmin tests the User.IsAdmin method.
+func TestUser_IsAdmin(t *testing.T) {
+	tests := []struct {
+		name string
+		user *domain.User
+		want bool
+	}{
+		{
+			name: "admin user is admin",
+			user: &domain.User{
+				ID:   uuid.New(),
+				Role: domain.RoleAdmin,
+			},
+			want: true,
+		},
+		{
+			name: "regular user is not admin",
+			user: &domain.User{
+				ID:   uuid.New(),
+				Role: domain.RoleUser,
+			},
+			want: false,
+		},
+		{
+			name: "user with invalid role is not admin",
+			user: &domain.User{
+				ID:   uuid.New(),
+				Role: domain.Role("invalid"),
+			},
+			want: false,
+		},
+		{
+			name: "user with empty role is not admin",
+			user: &domain.User{
+				ID:   uuid.New(),
+				Role: domain.Role(""),
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.user.IsAdmin(); got != tt.want {
+				t.Errorf("User.IsAdmin() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestKYCStatus_IsValid(t *testing.T) {
 	tests := []struct {
 		name   string

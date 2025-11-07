@@ -52,3 +52,26 @@ SELECT COUNT(*) FROM refresh_tokens
 WHERE user_id = $1 
   AND revoked_at IS NULL 
   AND expires_at > NOW();
+
+-- name: GetAllActiveSessions :many
+-- GetAllActiveSessions retrieves all active sessions across all users (admin only).
+SELECT rt.*, u.email, u.first_name, u.last_name
+FROM refresh_tokens rt
+INNER JOIN users u ON rt.user_id = u.id
+WHERE rt.revoked_at IS NULL 
+  AND rt.expires_at > NOW()
+  AND u.deleted_at IS NULL
+ORDER BY rt.created_at DESC
+LIMIT $1 OFFSET $2;
+
+-- name: CountAllActiveSessions :one
+-- CountAllActiveSessions returns the total count of active sessions across all users (admin only).
+SELECT COUNT(*) FROM refresh_tokens
+WHERE revoked_at IS NULL 
+  AND expires_at > NOW();
+
+-- name: RevokeTokenByID :execrows
+-- RevokeTokenByID revokes a specific refresh token by token value (admin only).
+UPDATE refresh_tokens
+SET revoked_at = NOW()
+WHERE token = $1 AND revoked_at IS NULL;

@@ -11,9 +11,9 @@ import (
 // This interface is implemented by the infrastructure layer (repository package).
 // Following Clean Architecture: domain defines the interface, infrastructure implements it.
 type UserRepository interface {
-	// Create creates a new user with the provided email, full name, and hashed password.
+	// Create creates a new user with the provided email, first name, last name, and hashed password.
 	// Returns error if email already exists or database operation fails.
-	Create(ctx context.Context, email, fullName, hashedPassword string) (*User, error)
+	Create(ctx context.Context, email, firstName, lastName, hashedPassword string) (*User, error)
 
 	// GetByID retrieves a user by their unique ID.
 	// Returns ErrUserNotFound if user doesn't exist or is soft-deleted.
@@ -27,9 +27,9 @@ type UserRepository interface {
 	// Returns error if user doesn't exist or status is invalid.
 	UpdateKYCStatus(ctx context.Context, id uuid.UUID, status KYCStatus) (*User, error)
 
-	// UpdateProfile updates the user's profile information (full name).
+	// UpdateProfile updates the user's profile information (first name and last name).
 	// Returns error if user doesn't exist.
-	UpdateProfile(ctx context.Context, id uuid.UUID, fullName string) (*User, error)
+	UpdateProfile(ctx context.Context, id uuid.UUID, firstName, lastName string) (*User, error)
 
 	// SoftDelete marks a user as deleted without removing the record.
 	// Returns error if user doesn't exist or is already deleted.
@@ -41,6 +41,18 @@ type UserRepository interface {
 
 	// Count returns the total count of active (non-deleted) users.
 	Count(ctx context.Context) (int64, error)
+
+	// SearchUsers searches users by email, first name, or last name with pagination.
+	// Admin-only operation for user management.
+	SearchUsers(ctx context.Context, query string, limit, offset int) ([]*User, error)
+
+	// UpdateRole updates a user's role (admin-only operation).
+	// Returns error if user doesn't exist or role is invalid.
+	UpdateRole(ctx context.Context, id uuid.UUID, role Role) (*User, error)
+
+	// GetByIDIncludeDeleted retrieves a user by ID including soft-deleted users.
+	// Admin-only operation for user recovery or audit purposes.
+	GetByIDIncludeDeleted(ctx context.Context, id uuid.UUID) (*User, error)
 }
 
 // RefreshTokenRepository defines the interface for refresh token persistence.
@@ -72,4 +84,16 @@ type RefreshTokenRepository interface {
 	// DeleteExpired removes expired refresh tokens from the database.
 	// Should be run periodically as a cleanup job.
 	DeleteExpired(ctx context.Context) error
+
+	// GetAllActiveSessions retrieves all active sessions across all users with pagination.
+	// Admin-only operation for monitoring and audit purposes.
+	GetAllActiveSessions(ctx context.Context, limit, offset int) ([]*RefreshToken, error)
+
+	// CountAllActiveSessions returns the total count of active sessions across all users.
+	// Admin-only operation for analytics.
+	CountAllActiveSessions(ctx context.Context) (int64, error)
+
+	// RevokeToken revokes a specific token by its value.
+	// Admin-only operation for force logout.
+	RevokeToken(ctx context.Context, token string) error
 }

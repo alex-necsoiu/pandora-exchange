@@ -27,40 +27,52 @@ func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (
     email,
-    full_name,
+    first_name,
+    last_name,
     hashed_password,
+    role,
     kyc_status
 ) VALUES (
-    $1, $2, $3, 'pending'
-) RETURNING id, email, full_name, hashed_password, kyc_status, created_at, updated_at, deleted_at
+    $1, $2, $3, $4, COALESCE($5, 'user'), 'pending'
+) RETURNING id, email, hashed_password, kyc_status, created_at, updated_at, deleted_at, first_name, last_name, role
 `
 
 type CreateUserParams struct {
-	Email          string  `json:"email"`
-	FullName       *string `json:"full_name"`
-	HashedPassword string  `json:"hashed_password"`
+	Email          string      `json:"email"`
+	FirstName      string      `json:"first_name"`
+	LastName       string      `json:"last_name"`
+	HashedPassword string      `json:"hashed_password"`
+	Column5        interface{} `json:"column_5"`
 }
 
-// CreateUser creates a new user with the provided email, full name, and hashed password.
+// CreateUser creates a new user with the provided email, first name, last name, and hashed password.
 // Returns the created user record.
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, createUser, arg.Email, arg.FullName, arg.HashedPassword)
+	row := q.db.QueryRow(ctx, createUser,
+		arg.Email,
+		arg.FirstName,
+		arg.LastName,
+		arg.HashedPassword,
+		arg.Column5,
+	)
 	var i User
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
-		&i.FullName,
 		&i.HashedPassword,
 		&i.KycStatus,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.FirstName,
+		&i.LastName,
+		&i.Role,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, full_name, hashed_password, kyc_status, created_at, updated_at, deleted_at FROM users
+SELECT id, email, hashed_password, kyc_status, created_at, updated_at, deleted_at, first_name, last_name, role FROM users
 WHERE email = $1 AND deleted_at IS NULL
 `
 
@@ -72,18 +84,20 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
-		&i.FullName,
 		&i.HashedPassword,
 		&i.KycStatus,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.FirstName,
+		&i.LastName,
+		&i.Role,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, full_name, hashed_password, kyc_status, created_at, updated_at, deleted_at FROM users
+SELECT id, email, hashed_password, kyc_status, created_at, updated_at, deleted_at, first_name, last_name, role FROM users
 WHERE id = $1 AND deleted_at IS NULL
 `
 
@@ -95,18 +109,44 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
-		&i.FullName,
 		&i.HashedPassword,
 		&i.KycStatus,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.FirstName,
+		&i.LastName,
+		&i.Role,
+	)
+	return i, err
+}
+
+const getUserByIDIncludeDeleted = `-- name: GetUserByIDIncludeDeleted :one
+SELECT id, email, hashed_password, kyc_status, created_at, updated_at, deleted_at, first_name, last_name, role FROM users
+WHERE id = $1
+`
+
+// GetUserByIDIncludeDeleted retrieves a user by ID including soft-deleted users (admin only).
+func (q *Queries) GetUserByIDIncludeDeleted(ctx context.Context, id uuid.UUID) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByIDIncludeDeleted, id)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.HashedPassword,
+		&i.KycStatus,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.FirstName,
+		&i.LastName,
+		&i.Role,
 	)
 	return i, err
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, email, full_name, hashed_password, kyc_status, created_at, updated_at, deleted_at FROM users
+SELECT id, email, hashed_password, kyc_status, created_at, updated_at, deleted_at, first_name, last_name, role FROM users
 WHERE deleted_at IS NULL
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2
@@ -131,12 +171,64 @@ func (q *Queries) ListUsers(ctx context.Context, arg ListUsersParams) ([]User, e
 		if err := rows.Scan(
 			&i.ID,
 			&i.Email,
-			&i.FullName,
 			&i.HashedPassword,
 			&i.KycStatus,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DeletedAt,
+			&i.FirstName,
+			&i.LastName,
+			&i.Role,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchUsers = `-- name: SearchUsers :many
+SELECT id, email, hashed_password, kyc_status, created_at, updated_at, deleted_at, first_name, last_name, role FROM users
+WHERE deleted_at IS NULL
+AND (
+    email ILIKE '%' || $1 || '%'
+    OR first_name ILIKE '%' || $1 || '%'
+    OR last_name ILIKE '%' || $1 || '%'
+)
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type SearchUsersParams struct {
+	Column1 *string `json:"column_1"`
+	Limit   int32   `json:"limit"`
+	Offset  int32   `json:"offset"`
+}
+
+// SearchUsers searches users by email, first name, or last name.
+func (q *Queries) SearchUsers(ctx context.Context, arg SearchUsersParams) ([]User, error) {
+	rows, err := q.db.Query(ctx, searchUsers, arg.Column1, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []User{}
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.HashedPassword,
+			&i.KycStatus,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.FirstName,
+			&i.LastName,
+			&i.Role,
 		); err != nil {
 			return nil, err
 		}
@@ -168,7 +260,7 @@ const updateUserKYCStatus = `-- name: UpdateUserKYCStatus :one
 UPDATE users
 SET kyc_status = $2
 WHERE id = $1 AND deleted_at IS NULL
-RETURNING id, email, full_name, hashed_password, kyc_status, created_at, updated_at, deleted_at
+RETURNING id, email, hashed_password, kyc_status, created_at, updated_at, deleted_at, first_name, last_name, role
 `
 
 type UpdateUserKYCStatusParams struct {
@@ -184,41 +276,77 @@ func (q *Queries) UpdateUserKYCStatus(ctx context.Context, arg UpdateUserKYCStat
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
-		&i.FullName,
 		&i.HashedPassword,
 		&i.KycStatus,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.FirstName,
+		&i.LastName,
+		&i.Role,
 	)
 	return i, err
 }
 
 const updateUserProfile = `-- name: UpdateUserProfile :one
 UPDATE users
-SET full_name = $2
+SET first_name = $2, last_name = $3
 WHERE id = $1 AND deleted_at IS NULL
-RETURNING id, email, full_name, hashed_password, kyc_status, created_at, updated_at, deleted_at
+RETURNING id, email, hashed_password, kyc_status, created_at, updated_at, deleted_at, first_name, last_name, role
 `
 
 type UpdateUserProfileParams struct {
-	ID       uuid.UUID `json:"id"`
-	FullName *string   `json:"full_name"`
+	ID        uuid.UUID `json:"id"`
+	FirstName string    `json:"first_name"`
+	LastName  string    `json:"last_name"`
 }
 
-// UpdateUserProfile updates user's profile information (full_name).
+// UpdateUserProfile updates user's profile information (first_name and last_name).
 func (q *Queries) UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error) {
-	row := q.db.QueryRow(ctx, updateUserProfile, arg.ID, arg.FullName)
+	row := q.db.QueryRow(ctx, updateUserProfile, arg.ID, arg.FirstName, arg.LastName)
 	var i User
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
-		&i.FullName,
 		&i.HashedPassword,
 		&i.KycStatus,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
+		&i.FirstName,
+		&i.LastName,
+		&i.Role,
+	)
+	return i, err
+}
+
+const updateUserRole = `-- name: UpdateUserRole :one
+UPDATE users
+SET role = $2
+WHERE id = $1 AND deleted_at IS NULL
+RETURNING id, email, hashed_password, kyc_status, created_at, updated_at, deleted_at, first_name, last_name, role
+`
+
+type UpdateUserRoleParams struct {
+	ID   uuid.UUID `json:"id"`
+	Role string    `json:"role"`
+}
+
+// UpdateUserRole updates a user's role (admin only operation).
+func (q *Queries) UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUserRole, arg.ID, arg.Role)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.HashedPassword,
+		&i.KycStatus,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.FirstName,
+		&i.LastName,
+		&i.Role,
 	)
 	return i, err
 }

@@ -48,6 +48,7 @@ type TokenClaims struct {
 	jwt.RegisteredClaims
 	UserID    uuid.UUID `json:"user_id"`
 	Email     string    `json:"email,omitempty"`     // Only in access tokens
+	Role      string    `json:"role,omitempty"`      // User role for authorization
 	TokenType string    `json:"token_type"`          // "access" or "refresh"
 	TokenID   string    `json:"jti"`                 // Unique token identifier
 }
@@ -94,9 +95,9 @@ func NewJWTManager(signingKey string, accessTokenDuration, refreshTokenDuration 
 }
 
 // GenerateAccessToken generates a short-lived JWT access token.
-// Access tokens include the user's email and are used for API authorization.
+// Access tokens include the user's email, role, and are used for API authorization.
 // Default duration: 15 minutes.
-func (m *JWTManager) GenerateAccessToken(userID uuid.UUID, email string) (string, error) {
+func (m *JWTManager) GenerateAccessToken(userID uuid.UUID, email, role string) (string, error) {
 	if userID == uuid.Nil {
 		return "", ErrNilUserID
 	}
@@ -116,6 +117,7 @@ func (m *JWTManager) GenerateAccessToken(userID uuid.UUID, email string) (string
 		},
 		UserID:    userID,
 		Email:     email,
+		Role:      role,
 		TokenType: "access",
 		TokenID:   uuid.New().String(),
 	}

@@ -220,3 +220,82 @@ func timeToPgTimestamp(t time.Time) pgtype.Timestamptz {
 		Valid: !t.IsZero(),
 	}
 }
+
+// GetAllActiveSessions retrieves all active sessions across all users with pagination.
+// Admin-only operation for monitoring and audit purposes.
+func (r *RefreshTokenRepository) GetAllActiveSessions(ctx context.Context, limit, offset int) ([]*domain.RefreshToken, error) {
+	r.logger.WithFields(map[string]interface{}{
+		"limit":  limit,
+		"offset": offset,
+	}).Debug("Getting all active sessions")
+
+	dbTokens, err := r.queries.GetAllActiveSessions(ctx, postgres.GetAllActiveSessionsParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
+	if err != nil {
+		r.logger.WithError(err).Error("Failed to get all active sessions")
+		return nil, fmt.Errorf("failed to get all active sessions: %w", err)
+	}
+
+	tokens := make([]*domain.RefreshToken, len(dbTokens))
+	for i, dbToken := range dbTokens {
+		tokens[i] = &domain.RefreshToken{
+			Token:     dbToken.Token,
+			UserID:    dbToken.UserID,
+			ExpiresAt: dbToken.ExpiresAt.Time,
+			CreatedAt: dbToken.CreatedAt.Time,
+			IPAddress: getStringValue(dbToken.IpAddress),
+			UserAgent: getStringValue(dbToken.UserAgent),
+		}
+		if dbToken.RevokedAt.Valid {
+			revokedAt := dbToken.RevokedAt.Time
+			tokens[i].RevokedAt = &revokedAt
+		}
+	}
+
+	r.logger.WithField("count", len(tokens)).Debug("All active sessions retrieved")
+	return tokens, nil
+}
+
+// CountAllActiveSessions returns the total count of active sessions across all users.
+func (r *RefreshTokenRepository) CountAllActiveSessions(ctx context.Context) (int64, error) {
+	r.logger.Debug("Counting all active sessions")
+
+	count, err := r.queries.CountAllActiveSessions(ctx)
+	if err != nil {
+		r.logger.WithError(err).Error("Failed to count all active sessions")
+		return 0, fmt.Errorf("failed to count all active sessions: %w", err)
+	}
+
+	r.logger.WithField("count", count).Debug("All active sessions counted")
+	return count, nil
+}
+
+// RevokeToken revokes a specific token by its value.
+// Admin-only operation for force logout.
+func (r *RefreshTokenRepository) RevokeToken(ctx context.Context, token string) error {
+	r.logger.WithField("token", "[REDACTED]").Debug("Revoking specific token")
+
+	rows, err := r.queries.RevokeTokenByID(ctx, token)
+	if err != nil {
+		r.logger.WithError(err).Error("Failed to revoke token")
+		return fmt.Errorf("failed to revoke token: %w", err)
+	}
+
+	if rows == 0 {
+		r.logger.Debug("Token not found or already revoked")
+		return domain.ErrTokenNotFound
+	}
+
+	r.logger.Info("Token revoked successfully")
+	return nil
+}
+
+// getStringValue safely extracts string value from pointer.
+func getStringValue(s *string) string {
+	if s != nil {
+		return *s
+	}
+	return ""
+}

@@ -48,7 +48,8 @@ func (h *Handler) Register(c *gin.Context) {
 		c.Request.Context(),
 		req.Email,
 		req.Password,
-		req.FullName,
+		req.FirstName,
+		req.LastName,
 	)
 	if err != nil {
 		h.handleServiceError(c, err, "registration failed")
@@ -288,7 +289,7 @@ func (h *Handler) UpdateProfile(c *gin.Context) {
 
 	h.logger.WithField("user_id", userID).Info("Processing profile update")
 
-	user, err := h.userService.UpdateProfile(c.Request.Context(), userID, req.FullName)
+	user, err := h.userService.UpdateProfile(c.Request.Context(), userID, req.FirstName, req.LastName)
 	if err != nil {
 		h.handleServiceError(c, err, "profile update failed")
 		return

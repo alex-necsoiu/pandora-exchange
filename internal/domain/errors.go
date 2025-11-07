@@ -49,4 +49,10 @@ var (
 
 	// ErrForbidden is returned when a user is forbidden from performing an action.
 	ErrForbidden = errors.New("forbidden")
+
+	// ErrTokenNotFound is returned when a token cannot be found.
+	ErrTokenNotFound = errors.New("token not found")
+
+	// ErrInvalidRole is returned when an invalid role is provided.
+	ErrInvalidRole = errors.New("invalid role")
 )

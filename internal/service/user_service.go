@@ -57,7 +57,7 @@ func NewUserService(
 }
 
 // Register creates a new user account
-func (s *UserService) Register(ctx context.Context, email, password, fullName string) (*domain.User, error) {
+func (s *UserService) Register(ctx context.Context, email, password, firstName, lastName string) (*domain.User, error) {
 	s.logger.WithField("email", email).Info("user registration started")
 
 	if email == "" {
@@ -68,9 +68,13 @@ func (s *UserService) Register(ctx context.Context, email, password, fullName st
 		s.logger.Error("registration failed: password cannot be empty")
 		return nil, errors.New("password cannot be empty")
 	}
-	if fullName == "" {
-		s.logger.Error("registration failed: full name cannot be empty")
-		return nil, errors.New("full name cannot be empty")
+	if firstName == "" {
+		s.logger.Error("registration failed: first name cannot be empty")
+		return nil, errors.New("first name cannot be empty")
+	}
+	if lastName == "" {
+		s.logger.Error("registration failed: last name cannot be empty")
+		return nil, errors.New("last name cannot be empty")
 	}
 
 	// Hash the password
@@ -81,7 +85,7 @@ func (s *UserService) Register(ctx context.Context, email, password, fullName st
 	}
 
 	// Create user in repository
-	user, err := s.userRepo.Create(ctx, email, fullName, hashedPassword)
+	user, err := s.userRepo.Create(ctx, email, firstName, lastName, hashedPassword)
 	if err != nil {
 		if errors.Is(err, domain.ErrUserAlreadyExists) {
 			s.logger.WithField("email", email).Warn("registration failed: user already exists")
@@ -93,9 +97,10 @@ func (s *UserService) Register(ctx context.Context, email, password, fullName st
 
 	// Log audit event for user registration
 	s.auditLogger.LogEvent("user.registered", map[string]interface{}{
-		"user_id":   user.ID.String(),
-		"email":     user.Email,
-		"full_name": user.FullName,
+		"user_id":    user.ID.String(),
+		"email":      user.Email,
+		"first_name": user.FirstName,
+		"last_name":  user.LastName,
 	})
 
 	s.logger.WithFields(map[string]interface{}{
@@ -148,7 +153,7 @@ func (s *UserService) Login(ctx context.Context, email, password, ipAddress, use
 	}
 
 	// Generate access token
-	accessToken, err := s.jwtManager.GenerateAccessToken(user.ID, user.Email)
+	accessToken, err := s.jwtManager.GenerateAccessToken(user.ID, user.Email, user.Role.String())
 	if err != nil {
 		s.logger.WithError(err).WithField("user_id", user.ID.String()).Error("failed to generate access token")
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
@@ -241,7 +246,7 @@ func (s *UserService) RefreshToken(ctx context.Context, refreshToken, ipAddress,
 	}
 
 	// Generate new access token
-	newAccessToken, err := s.jwtManager.GenerateAccessToken(user.ID, user.Email)
+	newAccessToken, err := s.jwtManager.GenerateAccessToken(user.ID, user.Email, user.Role.String())
 	if err != nil {
 		s.logger.WithError(err).WithField("user_id", user.ID.String()).Error("failed to generate new access token")
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
@@ -365,22 +370,29 @@ func (s *UserService) UpdateKYC(ctx context.Context, id uuid.UUID, status domain
 }
 
 // UpdateProfile updates a user's profile information
-func (s *UserService) UpdateProfile(ctx context.Context, id uuid.UUID, fullName string) (*domain.User, error) {
+func (s *UserService) UpdateProfile(ctx context.Context, id uuid.UUID, firstName, lastName string) (*domain.User, error) {
 	s.logger.WithField("user_id", id.String()).Info("profile update attempt")
 
-	if fullName == "" {
-		s.logger.WithField("user_id", id.String()).Error("profile update failed: full name cannot be empty")
-		return nil, errors.New("full name cannot be empty")
+	if firstName == "" {
+		s.logger.WithField("user_id", id.String()).Error("profile update failed: first name cannot be empty")
+		return nil, errors.New("first name cannot be empty")
 	}
 
-	user, err := s.userRepo.UpdateProfile(ctx, id, fullName)
+	if lastName == "" {
+		s.logger.WithField("user_id", id.String()).Error("profile update failed: last name cannot be empty")
+		return nil, errors.New("last name cannot be empty")
+	}
+
+	user, err := s.userRepo.UpdateProfile(ctx, id, firstName, lastName)
 	if err != nil {
 		s.logger.WithError(err).WithField("user_id", id.String()).Error("failed to update profile")
 		return nil, err
 	}
 
 	s.auditLogger.LogEvent("user.profile_updated", map[string]interface{}{
-		"user_id": id.String(),
+		"user_id":    id.String(),
+		"first_name": firstName,
+		"last_name":  lastName,
 	})
 
 	s.logger.WithField("user_id", id.String()).Info("profile updated successfully")
@@ -429,4 +441,160 @@ func (s *UserService) GetActiveSessions(ctx context.Context, userID uuid.UUID) (
 	}).Debug("active sessions retrieved")
 
 	return sessions, nil
+}
+
+// ListUsers retrieves a paginated list of all users (admin only).
+func (s *UserService) ListUsers(ctx context.Context, limit, offset int) ([]*domain.User, int64, error) {
+	s.logger.WithFields(map[string]interface{}{
+		"limit":  limit,
+		"offset": offset,
+	}).Debug("Admin: listing users")
+
+	users, err := s.userRepo.List(ctx, limit, offset)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to list users")
+		return nil, 0, err
+	}
+
+	total, err := s.userRepo.Count(ctx)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to count users")
+		return nil, 0, err
+	}
+
+	s.logger.WithFields(map[string]interface{}{
+		"count": len(users),
+		"total": total,
+	}).Info("Admin: users listed successfully")
+
+	return users, total, nil
+}
+
+// SearchUsers searches for users by email, first name, or last name (admin only).
+func (s *UserService) SearchUsers(ctx context.Context, query string, limit, offset int) ([]*domain.User, error) {
+	s.logger.WithFields(map[string]interface{}{
+		"query":  query,
+		"limit":  limit,
+		"offset": offset,
+	}).Debug("Admin: searching users")
+
+	users, err := s.userRepo.SearchUsers(ctx, query, limit, offset)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to search users")
+		return nil, err
+	}
+
+	s.logger.WithField("count", len(users)).Info("Admin: users search completed")
+	return users, nil
+}
+
+// GetUserByIDAdmin retrieves a user by ID including deleted users (admin only).
+func (s *UserService) GetUserByIDAdmin(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+	s.logger.WithField("user_id", id).Debug("Admin: getting user by ID (include deleted)")
+
+	user, err := s.userRepo.GetByIDIncludeDeleted(ctx, id)
+	if err != nil {
+		s.logger.WithError(err).WithField("user_id", id).Error("Failed to get user")
+		return nil, err
+	}
+
+	s.logger.WithField("user_id", id).Debug("Admin: user retrieved successfully")
+	return user, nil
+}
+
+// UpdateUserRole updates a user's role (admin only).
+func (s *UserService) UpdateUserRole(ctx context.Context, id uuid.UUID, role domain.Role) (*domain.User, error) {
+	s.logger.WithFields(map[string]interface{}{
+		"user_id": id,
+		"role":    role,
+	}).Info("Admin: updating user role")
+
+	// Validate role
+	if !role.IsValid() {
+		return nil, domain.ErrInvalidRole
+	}
+
+	user, err := s.userRepo.UpdateRole(ctx, id, role)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to update user role")
+		return nil, err
+	}
+
+	s.auditLogger.LogEvent("admin.user_role_updated", map[string]interface{}{
+		"user_id": id.String(),
+		"role":    role.String(),
+	})
+
+	s.logger.WithField("user_id", id).Info("Admin: user role updated successfully")
+	return user, nil
+}
+
+// GetAllActiveSessions retrieves all active sessions across all users (admin only).
+func (s *UserService) GetAllActiveSessions(ctx context.Context, limit, offset int) ([]*domain.RefreshToken, int64, error) {
+	s.logger.WithFields(map[string]interface{}{
+		"limit":  limit,
+		"offset": offset,
+	}).Debug("Admin: getting all active sessions")
+
+	sessions, err := s.refreshTokenRepo.GetAllActiveSessions(ctx, limit, offset)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to get all active sessions")
+		return nil, 0, err
+	}
+
+	total, err := s.refreshTokenRepo.CountAllActiveSessions(ctx)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to count all active sessions")
+		return nil, 0, err
+	}
+
+	s.logger.WithFields(map[string]interface{}{
+		"count": len(sessions),
+		"total": total,
+	}).Info("Admin: all active sessions retrieved")
+
+	return sessions, total, nil
+}
+
+// ForceLogout revokes a specific refresh token (admin only).
+func (s *UserService) ForceLogout(ctx context.Context, token string) error {
+	s.logger.Debug("Admin: forcing logout for token")
+
+	err := s.refreshTokenRepo.RevokeToken(ctx, token)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to revoke token")
+		return err
+	}
+
+	s.auditLogger.LogEvent("admin.force_logout", map[string]interface{}{
+		"token": "[REDACTED]",
+	})
+
+	s.logger.Info("Admin: token revoked successfully (force logout)")
+	return nil
+}
+
+// GetSystemStats retrieves system statistics for admin dashboard (admin only).
+func (s *UserService) GetSystemStats(ctx context.Context) (map[string]interface{}, error) {
+	s.logger.Debug("Admin: getting system statistics")
+
+	totalUsers, err := s.userRepo.Count(ctx)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to count users")
+		return nil, err
+	}
+
+	activeSessions, err := s.refreshTokenRepo.CountAllActiveSessions(ctx)
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to count active sessions")
+		return nil, err
+	}
+
+	stats := map[string]interface{}{
+		"total_users":     totalUsers,
+		"active_sessions": activeSessions,
+	}
+
+	s.logger.WithFields(stats).Info("Admin: system statistics retrieved")
+	return stats, nil
 }

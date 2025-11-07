@@ -1,13 +1,15 @@
 -- name: CreateUser :one
--- CreateUser creates a new user with the provided email, full name, and hashed password.
+-- CreateUser creates a new user with the provided email, first name, last name, and hashed password.
 -- Returns the created user record.
 INSERT INTO users (
     email,
-    full_name,
+    first_name,
+    last_name,
     hashed_password,
+    role,
     kyc_status
 ) VALUES (
-    $1, $2, $3, 'pending'
+    $1, $2, $3, $4, COALESCE($5, 'user'), 'pending'
 ) RETURNING *;
 
 -- name: GetUserByID :one
@@ -51,8 +53,32 @@ SELECT COUNT(*) FROM users
 WHERE deleted_at IS NULL;
 
 -- name: UpdateUserProfile :one
--- UpdateUserProfile updates user's profile information (full_name).
+-- UpdateUserProfile updates user's profile information (first_name and last_name).
 UPDATE users
-SET full_name = $2
+SET first_name = $2, last_name = $3
 WHERE id = $1 AND deleted_at IS NULL
 RETURNING *;
+
+-- name: SearchUsers :many
+-- SearchUsers searches users by email, first name, or last name.
+SELECT * FROM users
+WHERE deleted_at IS NULL
+AND (
+    email ILIKE '%' || $1 || '%'
+    OR first_name ILIKE '%' || $1 || '%'
+    OR last_name ILIKE '%' || $1 || '%'
+)
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
+
+-- name: UpdateUserRole :one
+-- UpdateUserRole updates a user's role (admin only operation).
+UPDATE users
+SET role = $2
+WHERE id = $1 AND deleted_at IS NULL
+RETURNING *;
+
+-- name: GetUserByIDIncludeDeleted :one
+-- GetUserByIDIncludeDeleted retrieves a user by ID including soft-deleted users (admin only).
+SELECT * FROM users
+WHERE id = $1;

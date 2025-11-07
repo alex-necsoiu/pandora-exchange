@@ -11,6 +11,8 @@ import (
 )
 
 type Querier interface {
+	// CountAllActiveSessions returns the total count of active sessions across all users (admin only).
+	CountAllActiveSessions(ctx context.Context) (int64, error)
 	// CountUserActiveTokens returns the number of active sessions for a user.
 	CountUserActiveTokens(ctx context.Context, userID uuid.UUID) (int64, error)
 	// CountUsers returns the total count of active users.
@@ -18,12 +20,14 @@ type Querier interface {
 	// CreateRefreshToken stores a new refresh token for a user.
 	// Includes audit information (IP address and user agent).
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
-	// CreateUser creates a new user with the provided email, full name, and hashed password.
+	// CreateUser creates a new user with the provided email, first name, last name, and hashed password.
 	// Returns the created user record.
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	// DeleteExpiredTokens removes expired refresh tokens from the database.
 	// Should be run periodically as a cleanup job.
 	DeleteExpiredTokens(ctx context.Context) error
+	// GetAllActiveSessions retrieves all active sessions across all users (admin only).
+	GetAllActiveSessions(ctx context.Context, arg GetAllActiveSessionsParams) ([]GetAllActiveSessionsRow, error)
 	// GetRefreshToken retrieves a refresh token by its value.
 	// Returns the token regardless of revoked status (caller should check IsRevoked).
 	GetRefreshToken(ctx context.Context, token string) (RefreshToken, error)
@@ -36,6 +40,8 @@ type Querier interface {
 	// GetUserByID retrieves a user by their unique ID.
 	// Returns error if user not found or soft-deleted.
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
+	// GetUserByIDIncludeDeleted retrieves a user by ID including soft-deleted users (admin only).
+	GetUserByIDIncludeDeleted(ctx context.Context, id uuid.UUID) (User, error)
 	// ListUsers retrieves paginated list of active users.
 	// Supports filtering and pagination.
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
@@ -45,14 +51,20 @@ type Querier interface {
 	// RevokeRefreshToken marks a refresh token as revoked.
 	// Sets revoked_at timestamp to current time.
 	RevokeRefreshToken(ctx context.Context, token string) (int64, error)
+	// RevokeTokenByID revokes a specific refresh token by token value (admin only).
+	RevokeTokenByID(ctx context.Context, token string) (int64, error)
+	// SearchUsers searches users by email, first name, or last name.
+	SearchUsers(ctx context.Context, arg SearchUsersParams) ([]User, error)
 	// SoftDeleteUser marks a user as deleted without removing the record.
 	// Sets deleted_at timestamp to current time.
 	SoftDeleteUser(ctx context.Context, id uuid.UUID) (int64, error)
 	// UpdateUserKYCStatus updates the KYC verification status for a user.
 	// Valid statuses: pending, verified, rejected
 	UpdateUserKYCStatus(ctx context.Context, arg UpdateUserKYCStatusParams) (User, error)
-	// UpdateUserProfile updates user's profile information (full_name).
+	// UpdateUserProfile updates user's profile information (first_name and last_name).
 	UpdateUserProfile(ctx context.Context, arg UpdateUserProfileParams) (User, error)
+	// UpdateUserRole updates a user's role (admin only operation).
+	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) (User, error)
 }
 
 var _ Querier = (*Queries)(nil)

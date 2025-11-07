@@ -35,20 +35,18 @@ func NewUserRepository(db postgres.DBTX, logger *observability.Logger) *UserRepo
 	}
 }
 
-// Create creates a new user with the provided email, full name, and hashed password.
+// Create creates a new user with the provided email, first name, last name, and hashed password.
 // Returns domain.ErrUserAlreadyExists if email already exists.
-func (r *UserRepository) Create(ctx context.Context, email, fullName, hashedPassword string) (*domain.User, error) {
+func (r *UserRepository) Create(ctx context.Context, email, firstName, lastName, hashedPassword string) (*domain.User, error) {
 	r.logger.WithField("email", email).Debug("Creating user")
-	
-	var fullNamePtr *string
-	if fullName != "" {
-		fullNamePtr = &fullName
-	}
 
+	// Default role is 'user' (handled by SQL query COALESCE)
 	dbUser, err := r.queries.CreateUser(ctx, postgres.CreateUserParams{
 		Email:          email,
-		FullName:       fullNamePtr,
+		FirstName:      firstName,
+		LastName:       lastName,
 		HashedPassword: hashedPassword,
+		Column5:        "user", // role column
 	})
 	if err != nil {
 		// Check for unique constraint violation (duplicate email)
@@ -153,19 +151,15 @@ func (r *UserRepository) UpdateKYCStatus(ctx context.Context, id uuid.UUID, stat
 	return dbUserToDomain(&dbUser), nil
 }
 
-// UpdateProfile updates the user's profile information (full name).
+// UpdateProfile updates the user's profile information (first name and last name).
 // Returns domain.ErrUserNotFound if user doesn't exist.
-func (r *UserRepository) UpdateProfile(ctx context.Context, id uuid.UUID, fullName string) (*domain.User, error) {
+func (r *UserRepository) UpdateProfile(ctx context.Context, id uuid.UUID, firstName, lastName string) (*domain.User, error) {
 	r.logger.WithField("user_id", id).Debug("Updating user profile")
-	
-	var fullNamePtr *string
-	if fullName != "" {
-		fullNamePtr = &fullName
-	}
 
 	dbUser, err := r.queries.UpdateUserProfile(ctx, postgres.UpdateUserProfileParams{
-		ID:       id,
-		FullName: fullNamePtr,
+		ID:        id,
+		FirstName: firstName,
+		LastName:  lastName,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -264,15 +258,13 @@ func dbUserToDomain(dbUser *postgres.User) *domain.User {
 	user := &domain.User{
 		ID:             dbUser.ID,
 		Email:          dbUser.Email,
+		FirstName:      dbUser.FirstName,
+		LastName:       dbUser.LastName,
 		HashedPassword: dbUser.HashedPassword,
+		Role:           domain.Role(dbUser.Role),
 		KYCStatus:      domain.KYCStatus(dbUser.KycStatus),
 		CreatedAt:      pgTimestampToTime(dbUser.CreatedAt),
 		UpdatedAt:      pgTimestampToTime(dbUser.UpdatedAt),
-	}
-
-	// Handle optional full name
-	if dbUser.FullName != nil {
-		user.FullName = *dbUser.FullName
 	}
 
 	// Handle optional deleted_at (soft delete)
@@ -303,4 +295,83 @@ func isDuplicateKeyError(err error) bool {
 	return strings.Contains(errMsg, "unique constraint") ||
 		strings.Contains(errMsg, "duplicate key") ||
 		strings.Contains(errMsg, "23505")
+}
+
+// SearchUsers searches users by email, first name, or last name with pagination.
+// Admin-only operation for user management.
+func (r *UserRepository) SearchUsers(ctx context.Context, query string, limit, offset int) ([]*domain.User, error) {
+	r.logger.WithFields(map[string]interface{}{
+		"query":  query,
+		"limit":  limit,
+		"offset": offset,
+	}).Debug("Searching users")
+
+	dbUsers, err := r.queries.SearchUsers(ctx, postgres.SearchUsersParams{
+		Column1: &query,
+		Limit:   int32(limit),
+		Offset:  int32(offset),
+	})
+	if err != nil {
+		r.logger.WithError(err).Error("Failed to search users")
+		return nil, fmt.Errorf("failed to search users: %w", err)
+	}
+
+	users := make([]*domain.User, len(dbUsers))
+	for i, dbUser := range dbUsers {
+		users[i] = dbUserToDomain(&dbUser)
+	}
+
+	r.logger.WithField("count", len(users)).Debug("Users search completed")
+	return users, nil
+}
+
+// UpdateRole updates a user's role (admin-only operation).
+func (r *UserRepository) UpdateRole(ctx context.Context, id uuid.UUID, role domain.Role) (*domain.User, error) {
+	// Validate role before database operation
+	if !role.IsValid() {
+		r.logger.WithFields(map[string]interface{}{
+			"user_id": id,
+			"role":    role,
+		}).Warn("Invalid role")
+		return nil, domain.ErrInvalidRole
+	}
+
+	r.logger.WithFields(map[string]interface{}{
+		"user_id": id,
+		"role":    role,
+	}).Debug("Updating user role")
+
+	dbUser, err := r.queries.UpdateUserRole(ctx, postgres.UpdateUserRoleParams{
+		ID:   id,
+		Role: string(role),
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			r.logger.WithField("user_id", id).Debug("User not found for role update")
+			return nil, domain.ErrUserNotFound
+		}
+		r.logger.WithError(err).Error("Failed to update user role")
+		return nil, fmt.Errorf("failed to update user role: %w", err)
+	}
+
+	r.logger.WithField("user_id", id).Info("User role updated successfully")
+	return dbUserToDomain(&dbUser), nil
+}
+
+// GetByIDIncludeDeleted retrieves a user by ID including soft-deleted users.
+// Admin-only operation for user recovery or audit purposes.
+func (r *UserRepository) GetByIDIncludeDeleted(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+	r.logger.WithField("user_id", id).Debug("Getting user by ID (include deleted)")
+
+	dbUser, err := r.queries.GetUserByIDIncludeDeleted(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			r.logger.WithField("user_id", id).Debug("User not found")
+			return nil, domain.ErrUserNotFound
+		}
+		r.logger.WithError(err).Error("Failed to get user")
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	return dbUserToDomain(&dbUser), nil
 }

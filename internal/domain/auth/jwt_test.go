@@ -54,7 +54,7 @@ func TestGenerateAccessToken(t *testing.T) {
 		userID := uuid.New()
 		email := "test@example.com"
 
-		token, err := manager.GenerateAccessToken(userID, email)
+		token, err := manager.GenerateAccessToken(userID, email, "user")
 		require.NoError(t, err)
 		assert.NotEmpty(t, token)
 
@@ -67,24 +67,24 @@ func TestGenerateAccessToken(t *testing.T) {
 		userID1 := uuid.New()
 		userID2 := uuid.New()
 
-		token1, err := manager.GenerateAccessToken(userID1, "user1@example.com")
+		token1, err := manager.GenerateAccessToken(userID1, "user1@example.com", "user")
 		require.NoError(t, err)
 
-		token2, err := manager.GenerateAccessToken(userID2, "user2@example.com")
+		token2, err := manager.GenerateAccessToken(userID2, "user2@example.com", "user")
 		require.NoError(t, err)
 
 		assert.NotEqual(t, token1, token2)
 	})
 
 	t.Run("generate with nil user ID fails", func(t *testing.T) {
-		_, err := manager.GenerateAccessToken(uuid.Nil, "test@example.com")
+		_, err := manager.GenerateAccessToken(uuid.Nil, "test@example.com", "user")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "user ID cannot be nil")
 	})
 
 	t.Run("generate with empty email fails", func(t *testing.T) {
 		userID := uuid.New()
-		_, err := manager.GenerateAccessToken(userID, "")
+		_, err := manager.GenerateAccessToken(userID, "", "user")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "email cannot be empty")
 	})
@@ -133,7 +133,7 @@ func TestValidateAccessToken(t *testing.T) {
 		userID := uuid.New()
 		email := "valid@example.com"
 
-		token, err := manager.GenerateAccessToken(userID, email)
+		token, err := manager.GenerateAccessToken(userID, email, "user")
 		require.NoError(t, err)
 
 		claims, err := manager.ValidateAccessToken(token)
@@ -159,7 +159,7 @@ func TestValidateAccessToken(t *testing.T) {
 		require.NoError(t, err)
 
 		userID := uuid.New()
-		token, err := otherManager.GenerateAccessToken(userID, "test@example.com")
+		token, err := otherManager.GenerateAccessToken(userID, "test@example.com", "user")
 		require.NoError(t, err)
 
 		// Validate with original manager
@@ -173,7 +173,7 @@ func TestValidateAccessToken(t *testing.T) {
 		require.NoError(t, err)
 
 		userID := uuid.New()
-		token, err := shortManager.GenerateAccessToken(userID, "test@example.com")
+		token, err := shortManager.GenerateAccessToken(userID, "test@example.com", "user")
 		require.NoError(t, err)
 
 		// Wait for token to expire
@@ -247,7 +247,7 @@ func TestValidateRefreshToken(t *testing.T) {
 
 	t.Run("validate access token as refresh token fails", func(t *testing.T) {
 		userID := uuid.New()
-		accessToken, err := manager.GenerateAccessToken(userID, "test@example.com")
+		accessToken, err := manager.GenerateAccessToken(userID, "test@example.com", "user")
 		require.NoError(t, err)
 
 		_, err = manager.ValidateRefreshToken(accessToken)
@@ -265,7 +265,7 @@ func TestTokenClaims(t *testing.T) {
 		userID := uuid.New()
 		email := "claims@example.com"
 
-		token, err := manager.GenerateAccessToken(userID, email)
+		token, err := manager.GenerateAccessToken(userID, email, "user")
 		require.NoError(t, err)
 
 		claims, err := manager.ValidateAccessToken(token)
@@ -308,7 +308,7 @@ func TestTokenClaims(t *testing.T) {
 		require.NoError(t, err)
 
 		userID := uuid.New()
-		token, err := manager.GenerateAccessToken(userID, "test@example.com")
+		token, err := manager.GenerateAccessToken(userID, "test@example.com", "user")
 		require.NoError(t, err)
 
 		claims, err := manager.ValidateAccessToken(token)

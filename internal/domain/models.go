@@ -9,6 +9,31 @@ import (
 	"github.com/google/uuid"
 )
 
+// Role represents a user's role in the system for authorization purposes.
+type Role string
+
+const (
+	// RoleUser is the default role for regular users.
+	RoleUser Role = "user"
+	// RoleAdmin is the role for administrators with elevated privileges.
+	RoleAdmin Role = "admin"
+)
+
+// IsValid checks if the role is one of the allowed values.
+func (r Role) IsValid() bool {
+	switch r {
+	case RoleUser, RoleAdmin:
+		return true
+	default:
+		return false
+	}
+}
+
+// String returns the string representation of Role.
+func (r Role) String() string {
+	return string(r)
+}
+
 // KYCStatus represents the Know Your Customer verification status.
 type KYCStatus string
 
@@ -42,8 +67,10 @@ func (s KYCStatus) String() string {
 type User struct {
 	ID             uuid.UUID
 	Email          string
-	FullName       string // Empty string if not provided
+	FirstName      string // User's first name
+	LastName       string // User's last name
 	HashedPassword string // Argon2id hashed password
+	Role           Role   // User role for authorization (user or admin)
 	KYCStatus      KYCStatus
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
@@ -58,6 +85,11 @@ func (u *User) IsDeleted() bool {
 // IsKYCVerified returns true if the user's KYC status is verified.
 func (u *User) IsKYCVerified() bool {
 	return u.KYCStatus == KYCStatusVerified
+}
+
+// IsAdmin returns true if the user has admin role.
+func (u *User) IsAdmin() bool {
+	return u.Role == RoleAdmin
 }
 
 // TokenPair represents an access token and refresh token pair.

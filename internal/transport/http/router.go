@@ -28,6 +28,7 @@ func SetupRouter(
 
 	// Create handler
 	handler := NewHandler(userService, logger)
+	adminHandler := NewAdminHandler(userService, logger)
 
 	// Health check (no auth required)
 	router.GET("/health", handler.HealthCheck)
@@ -55,9 +56,27 @@ func SetupRouter(
 			users.POST("/me/logout", handler.Logout)
 			users.POST("/me/logout-all", handler.LogoutAll)
 
-			// Admin endpoints (KYC management)
-			// TODO: Add admin role middleware
-			users.PUT("/:id/kyc", handler.UpdateKYC)
+			// Admin endpoints (KYC management) - requires admin role
+			users.PUT("/:id/kyc", AdminMiddleware(logger), handler.UpdateKYC)
+		}
+
+		// Admin routes (authentication + admin role required)
+		admin := v1.Group("/admin")
+		admin.Use(AuthMiddleware(jwtManager, logger))
+		admin.Use(AdminMiddleware(logger))
+		{
+			// User management
+			admin.GET("/users", adminHandler.ListUsers)
+			admin.GET("/users/search", adminHandler.SearchUsers)
+			admin.GET("/users/:id", adminHandler.GetUser)
+			admin.PUT("/users/:id/role", adminHandler.UpdateUserRole)
+
+			// Session management
+			admin.GET("/sessions", adminHandler.GetAllSessions)
+			admin.POST("/sessions/revoke", adminHandler.ForceLogout)
+
+			// System statistics
+			admin.GET("/stats", adminHandler.GetSystemStats)
 		}
 	}
 

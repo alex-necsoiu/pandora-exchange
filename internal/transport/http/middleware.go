@@ -55,6 +55,7 @@ func AuthMiddleware(jwtManager *auth.JWTManager, logger *observability.Logger) g
 		// Set user ID and email in context for handlers
 		c.Set("user_id", claims.UserID)
 		c.Set("email", claims.Email)
+		c.Set("user_role", claims.Role) // Set role for authorization
 
 		logger.WithFields(map[string]interface{}{
 			"user_id": claims.UserID,

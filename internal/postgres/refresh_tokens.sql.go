@@ -12,6 +12,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countAllActiveSessions = `-- name: CountAllActiveSessions :one
+SELECT COUNT(*) FROM refresh_tokens
+WHERE revoked_at IS NULL 
+  AND expires_at > NOW()
+`
+
+// CountAllActiveSessions returns the total count of active sessions across all users (admin only).
+func (q *Queries) CountAllActiveSessions(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countAllActiveSessions)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countUserActiveTokens = `-- name: CountUserActiveTokens :one
 SELECT COUNT(*) FROM refresh_tokens
 WHERE user_id = $1 
@@ -80,6 +94,67 @@ WHERE expires_at < NOW()
 func (q *Queries) DeleteExpiredTokens(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, deleteExpiredTokens)
 	return err
+}
+
+const getAllActiveSessions = `-- name: GetAllActiveSessions :many
+SELECT rt.token, rt.user_id, rt.expires_at, rt.created_at, rt.revoked_at, rt.ip_address, rt.user_agent, u.email, u.first_name, u.last_name
+FROM refresh_tokens rt
+INNER JOIN users u ON rt.user_id = u.id
+WHERE rt.revoked_at IS NULL 
+  AND rt.expires_at > NOW()
+  AND u.deleted_at IS NULL
+ORDER BY rt.created_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type GetAllActiveSessionsParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+type GetAllActiveSessionsRow struct {
+	Token     string             `json:"token"`
+	UserID    uuid.UUID          `json:"user_id"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	RevokedAt pgtype.Timestamptz `json:"revoked_at"`
+	IpAddress *string            `json:"ip_address"`
+	UserAgent *string            `json:"user_agent"`
+	Email     string             `json:"email"`
+	FirstName string             `json:"first_name"`
+	LastName  string             `json:"last_name"`
+}
+
+// GetAllActiveSessions retrieves all active sessions across all users (admin only).
+func (q *Queries) GetAllActiveSessions(ctx context.Context, arg GetAllActiveSessionsParams) ([]GetAllActiveSessionsRow, error) {
+	rows, err := q.db.Query(ctx, getAllActiveSessions, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetAllActiveSessionsRow{}
+	for rows.Next() {
+		var i GetAllActiveSessionsRow
+		if err := rows.Scan(
+			&i.Token,
+			&i.UserID,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.RevokedAt,
+			&i.IpAddress,
+			&i.UserAgent,
+			&i.Email,
+			&i.FirstName,
+			&i.LastName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getRefreshToken = `-- name: GetRefreshToken :one
@@ -165,6 +240,21 @@ WHERE token = $1 AND revoked_at IS NULL
 // Sets revoked_at timestamp to current time.
 func (q *Queries) RevokeRefreshToken(ctx context.Context, token string) (int64, error) {
 	result, err := q.db.Exec(ctx, revokeRefreshToken, token)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const revokeTokenByID = `-- name: RevokeTokenByID :execrows
+UPDATE refresh_tokens
+SET revoked_at = NOW()
+WHERE token = $1 AND revoked_at IS NULL
+`
+
+// RevokeTokenByID revokes a specific refresh token by token value (admin only).
+func (q *Queries) RevokeTokenByID(ctx context.Context, token string) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeTokenByID, token)
 	if err != nil {
 		return 0, err
 	}
