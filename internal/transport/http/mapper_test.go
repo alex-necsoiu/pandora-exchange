@@ -7,8 +7,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 
-	"pandora-exchange/internal/domain"
-	"pandora-exchange/internal/transport/http/dto"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/transport/http/dto"
 )
 
 // TestToUserResponse verifies domain.User to UserResponse mapping
@@ -25,9 +25,9 @@ func TestToUserResponse(t *testing.T) {
 				Email:     "test@example.com",
 				FirstName: "John",
 				LastName:  "Doe",
-				Role:      "user",
-				KYCStatus: "verified",
-				IsActive:  true,
+				Role:      domain.RoleUser,
+				KYCStatus: domain.KYCStatusVerified,
+				DeletedAt: nil,  // Active user
 				CreatedAt: time.Date(2025, 11, 8, 10, 0, 0, 0, time.UTC),
 				UpdatedAt: time.Date(2025, 11, 8, 12, 0, 0, 0, time.UTC),
 			},
@@ -50,9 +50,9 @@ func TestToUserResponse(t *testing.T) {
 				Email:     "inactive@example.com",
 				FirstName: "Jane",
 				LastName:  "Smith",
-				Role:      "user",
-				KYCStatus: "pending",
-				IsActive:  false,
+				Role:      domain.RoleUser,
+				KYCStatus: domain.KYCStatusPending,
+				DeletedAt: timePtr(time.Date(2025, 11, 1, 12, 0, 0, 0, time.UTC)),  // Deleted user
 				CreatedAt: time.Date(2025, 11, 1, 10, 0, 0, 0, time.UTC),
 				UpdatedAt: time.Date(2025, 11, 1, 10, 0, 0, 0, time.UTC),
 			},
@@ -149,4 +149,9 @@ func TestToTokenResponse(t *testing.T) {
 	assert.Equal(t, refreshToken, result.RefreshToken)
 	assert.Equal(t, "Bearer", result.TokenType)
 	assert.Equal(t, expiresIn, result.ExpiresIn)
+}
+
+// timePtr returns a pointer to the given time value
+func timePtr(t time.Time) *time.Time {
+	return &t
 }
