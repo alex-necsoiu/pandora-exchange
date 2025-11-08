@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alex-necsoiu/pandora-exchange/internal/config"
 	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
 	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
@@ -56,6 +57,14 @@ func setupIntegrationTest(t *testing.T) (*httptest.Server, *httptest.Server, *se
 	// Setup repositories
 	userRepo := repository.NewUserRepository(pool, logger)
 	refreshTokenRepo := repository.NewRefreshTokenRepository(pool, logger)
+	auditRepo := repository.NewAuditRepository(pool, logger)
+
+	// Create test config
+	testCfg := &config.Config{
+		Audit: config.AuditConfig{
+			RetentionDays: 90,
+		},
+	}
 
 	// Setup service
 	userService, err := service.NewUserService(
@@ -78,8 +87,8 @@ func setupIntegrationTest(t *testing.T) (*httptest.Server, *httptest.Server, *se
 	require.NoError(t, jwtErr)
 
 	// Setup HTTP routers
-	userRouter := httpTransport.SetupUserRouter(userService, jwtManager, logger, "test", false)
-	adminRouter := httpTransport.SetupAdminRouter(userService, jwtManager, logger, "test", false)
+	userRouter := httpTransport.SetupUserRouter(userService, jwtManager, auditRepo, testCfg, logger, "test", false)
+	adminRouter := httpTransport.SetupAdminRouter(userService, jwtManager, auditRepo, testCfg, logger, "test", false)
 
 	// Create test servers
 	userServer := httptest.NewServer(userRouter)
