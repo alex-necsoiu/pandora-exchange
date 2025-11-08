@@ -1,14 +1,23 @@
 // Package config provides configuration management for the User Service.
 // Configuration is loaded from environment variables with sensible defaults.
 // Supports multiple environments: dev, sandbox, audit, prod.
+// In dev/test: loads .env files via godotenv
+// In prod/staging: can load from YAML files
+// Priority: env vars > YAML > defaults
 package config
 
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -170,6 +179,179 @@ func Load() (*Config, error) {
 	return &cfg, nil
 }
 
+// LoadConfig loads configuration with support for .env files and YAML
+// Priority: environment variables > YAML file > defaults
+//
+// In dev/test environments:
+//   - Attempts to load .env.{env} file (e.g., .env.dev)
+//   - Falls back to environment variables
+//
+// In prod/staging environments:
+//   - Can load from YAML file if CONFIG_FILE is set
+//   - Falls back to environment variables
+//
+// Supports DATABASE_URL and REDIS_URL for simplified configuration
+func LoadConfig(env string) (*Config, error) {
+	// Step 1: Load .env file in dev/test environments
+	if env == EnvDevelopment || env == "test" {
+		envFile := fmt.Sprintf(".env.%s", env)
+		if _, err := os.Stat(envFile); err == nil {
+			if err := godotenv.Load(envFile); err != nil {
+				// .env file exists but failed to load - log but continue
+				fmt.Fprintf(os.Stderr, "Warning: failed to load %s: %v\n", envFile, err)
+			}
+		}
+		// Also try loading .env as fallback
+		_ = godotenv.Load()
+	}
+
+	// Step 2: Try to load from YAML if CONFIG_FILE is set
+	configFile := os.Getenv("CONFIG_FILE")
+	if configFile != "" {
+		cfg, err := loadFromYAML(configFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to load YAML config from %s, falling back to env vars\n", configFile)
+		} else {
+			return cfg, nil
+		}
+	}
+
+	// Step 3: Handle DATABASE_URL before calling Load()
+	// Parse and set individual env vars so Load() picks them up
+	var dbURLParsed bool
+	if dbURL := os.Getenv("DATABASE_URL"); dbURL != "" {
+		parsedURL, err := url.Parse(dbURL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid DATABASE_URL format: %w", err)
+		}
+
+		// Set individual env vars from DATABASE_URL
+		if parsedURL.User != nil {
+			os.Setenv("DB_USER", parsedURL.User.Username())
+			if password, ok := parsedURL.User.Password(); ok {
+				os.Setenv("DB_PASSWORD", password)
+			}
+		}
+		if parsedURL.Hostname() != "" {
+			os.Setenv("DB_HOST", parsedURL.Hostname())
+		}
+		if parsedURL.Port() != "" {
+			os.Setenv("DB_PORT", parsedURL.Port())
+		}
+		if len(parsedURL.Path) > 1 {
+			os.Setenv("DB_NAME", parsedURL.Path[1:]) // Remove leading slash
+		}
+		if sslmode := parsedURL.Query().Get("sslmode"); sslmode != "" {
+			os.Setenv("DB_SSLMODE", sslmode)
+		}
+		dbURLParsed = true
+	}
+
+	// Step 4: Handle REDIS_URL before calling Load()
+	if redisURL := os.Getenv("REDIS_URL"); redisURL != "" {
+		parsedURL, err := url.Parse(redisURL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid REDIS_URL format: %w", err)
+		}
+
+		// Set individual env vars from REDIS_URL
+		if parsedURL.Hostname() != "" {
+			os.Setenv("REDIS_HOST", parsedURL.Hostname())
+		}
+		if parsedURL.Port() != "" {
+			os.Setenv("REDIS_PORT", parsedURL.Port())
+		}
+		if parsedURL.User != nil {
+			if password, ok := parsedURL.User.Password(); ok {
+				os.Setenv("REDIS_PASSWORD", password)
+			}
+		}
+		if len(parsedURL.Path) > 1 {
+			if db, err := strconv.Atoi(parsedURL.Path[1:]); err == nil {
+				os.Setenv("REDIS_DB", strconv.Itoa(db))
+			}
+		}
+	}
+
+	// Step 5: Load from environment variables
+	cfg, err := Load()
+	if err != nil {
+		return nil, err
+	}
+
+	// Step 6: Validate Vault placeholders in dev/test
+	if env == EnvDevelopment || env == "test" {
+		if err := validateVaultPlaceholders(cfg); err != nil {
+			return nil, err
+		}
+	}
+
+	// For debugging: log if DATABASE_URL was used
+	_ = dbURLParsed
+
+	return cfg, nil
+}
+
+// loadFromYAML loads configuration from a YAML file
+func loadFromYAML(filename string) (*Config, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	var cfg Config
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse YAML config: %w", err)
+	}
+
+	// Set environment from YAML
+	if cfg.AppEnv != "" {
+		os.Setenv("APP_ENV", cfg.AppEnv)
+	}
+
+	// Validate configuration
+	if err := Validate(&cfg); err != nil {
+		return nil, err
+	}
+
+	return &cfg, nil
+}
+
+// validateVaultPlaceholders validates that Vault placeholders follow the expected format
+// Format: vault://secret/path/to/key
+func validateVaultPlaceholders(cfg *Config) error {
+	checkPlaceholder := func(value, fieldName string) error {
+		if !strings.HasPrefix(value, "vault://") {
+			return nil // Not a placeholder, skip
+		}
+
+		// Validate format
+		parts := strings.Split(value, "://")
+		if len(parts) != 2 || parts[1] == "" {
+			return fmt.Errorf("%s has invalid Vault placeholder format (expected vault://secret/path/to/key)", fieldName)
+		}
+
+		return nil
+	}
+
+	// Check DB password
+	if err := checkPlaceholder(cfg.Database.Password, "DB_PASSWORD"); err != nil {
+		return err
+	}
+
+	// Check JWT secret
+	if err := checkPlaceholder(cfg.JWT.Secret, "JWT_SECRET"); err != nil {
+		return err
+	}
+
+	// Check Redis password
+	if err := checkPlaceholder(cfg.Redis.Password, "REDIS_PASSWORD"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // Validate checks if the configuration is valid
 func Validate(cfg *Config) error {
 	// Validate environment
@@ -178,32 +360,48 @@ func Validate(cfg *Config) error {
 		EnvSandbox:     true,
 		EnvAudit:       true,
 		EnvProduction:  true,
+		"test":         true, // Allow "test" environment
 	}
 	if !validEnvs[cfg.AppEnv] {
-		return fmt.Errorf("invalid environment '%s': must be one of [dev, sandbox, audit, prod]", cfg.AppEnv)
+		return fmt.Errorf("invalid environment '%s': must be one of [dev, sandbox, audit, prod, test]", cfg.AppEnv)
 	}
 
 	// Validate database config
 	if cfg.Database.Host == "" {
-		return fmt.Errorf("DB_HOST is required")
+		return fmt.Errorf("database host is required")
 	}
 	if cfg.Database.Port == "" {
-		return fmt.Errorf("DB_PORT is required")
+		return fmt.Errorf("database port is required")
 	}
 	if cfg.Database.User == "" {
-		return fmt.Errorf("DB_USER is required")
+		return fmt.Errorf("database user is required")
 	}
 	if cfg.Database.Password == "" {
-		return fmt.Errorf("DB_PASSWORD is required")
+		return fmt.Errorf("database password is required")
 	}
 	if cfg.Database.Name == "" {
-		return fmt.Errorf("DB_NAME is required")
+		return fmt.Errorf("database name is required")
 	}
 
 	// Validate JWT config
-	if len(cfg.JWT.Secret) < MinJWTSecretLength {
+	// Allow Vault placeholders in dev/test environments
+	isVaultPlaceholder := strings.HasPrefix(cfg.JWT.Secret, "vault://")
+	isDev := cfg.AppEnv == EnvDevelopment || cfg.AppEnv == "test"
+	
+	// Check if JWT_SECRET is set
+	if cfg.JWT.Secret == "" {
+		return fmt.Errorf("JWT_SECRET is required")
+	}
+	
+	if !isVaultPlaceholder && len(cfg.JWT.Secret) < MinJWTSecretLength {
 		return fmt.Errorf("JWT secret must be at least %d characters long", MinJWTSecretLength)
 	}
+	
+	// In production, Vault placeholders must be resolved before validation
+	if isVaultPlaceholder && !isDev {
+		return fmt.Errorf("JWT_SECRET contains unresolved Vault placeholder in %s environment", cfg.AppEnv)
+	}
+	
 	if cfg.JWT.AccessTokenExpiry <= 0 {
 		return fmt.Errorf("JWT access token expiry must be positive")
 	}
