@@ -22,6 +22,9 @@ configMapGenerator:
   - db_sslmode=require
   - audit_retention_days=2555  # 7 years for compliance
   - audit_cleanup_interval=24h
+  - vault_enabled=true  # Enable Vault in production
+  - vault_addr=https://vault.default.svc.cluster.local:8200
+  - vault_secret_path=secret/data/pandora/user-service
 
 # Production-specific patches
 patchesStrategicMerge:

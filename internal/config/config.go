@@ -4,6 +4,7 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -30,6 +31,7 @@ type Config struct {
 	Redis    RedisConfig    `mapstructure:",squash"`
 	Tracing  TracingConfig  `mapstructure:",squash"`
 	Audit    AuditConfig    `mapstructure:",squash"`
+	Vault    VaultConfig    `mapstructure:",squash"`
 }
 
 // ServerConfig holds HTTP/gRPC server configuration
@@ -89,6 +91,26 @@ type AuditConfig struct {
 	CleanupInterval time.Duration `mapstructure:"AUDIT_CLEANUP_INTERVAL"`
 }
 
+// VaultConfig holds HashiCorp Vault configuration for secret management
+type VaultConfig struct {
+	// Enabled determines if Vault integration is active
+	// In dev, typically false (use ENV vars)
+	// In prod, should be true
+	Enabled bool `mapstructure:"VAULT_ENABLED"`
+	
+	// Addr is the Vault server address
+	// Example: "http://vault.default.svc.cluster.local:8200"
+	Addr string `mapstructure:"VAULT_ADDR"`
+	
+	// Token is the Vault authentication token
+	// In Kubernetes, this is typically injected by Vault Agent
+	Token string `mapstructure:"VAULT_TOKEN"`
+	
+	// SecretPath is the base path for secrets in Vault
+	// Example: "secret/data/pandora/user-service"
+	SecretPath string `mapstructure:"VAULT_SECRET_PATH"`
+}
+
 // Load reads configuration from environment variables
 // Returns error if required variables are missing or invalid
 func Load() (*Config, error) {
@@ -111,6 +133,9 @@ func Load() (*Config, error) {
 	v.SetDefault("OTEL_SAMPLE_RATE", 1.0)
 	v.SetDefault("AUDIT_RETENTION_DAYS", 90)
 	v.SetDefault("AUDIT_CLEANUP_INTERVAL", "24h")
+	v.SetDefault("VAULT_ENABLED", false)
+	v.SetDefault("VAULT_ADDR", "http://localhost:8200")
+	v.SetDefault("VAULT_SECRET_PATH", "secret/data/pandora/user-service")
 
 	// Bind environment variables explicitly
 	v.AutomaticEnv()
@@ -125,6 +150,7 @@ func Load() (*Config, error) {
 		"REDIS_HOST", "REDIS_PORT", "REDIS_PASSWORD", "REDIS_DB",
 		"OTEL_ENABLED", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_SERVICE_NAME", "OTEL_SAMPLE_RATE",
 		"AUDIT_RETENTION_DAYS", "AUDIT_CLEANUP_INTERVAL",
+		"VAULT_ENABLED", "VAULT_ADDR", "VAULT_TOKEN", "VAULT_SECRET_PATH",
 	}
 	for _, env := range envVars {
 		_ = v.BindEnv(env)
@@ -224,4 +250,78 @@ func (c *Config) IsSandbox() bool {
 // IsAudit returns true if running in audit environment
 func (c *Config) IsAudit() bool {
 	return c.AppEnv == EnvAudit
+}
+
+// LoadSecretsFromVault loads sensitive configuration from HashiCorp Vault
+// This method should be called after Load() to override ENV-based secrets with Vault values
+//
+// Parameters:
+//   - ctx: Context for Vault operations
+//   - vaultClient: Configured Vault client (can be nil if Vault disabled)
+//
+// Returns:
+//   - error: Returns error if Vault enabled but secret fetch fails
+//
+// Secrets loaded from Vault:
+//   - JWT_SECRET: JWT signing key
+//   - DB_PASSWORD: PostgreSQL password
+//   - REDIS_PASSWORD: Redis password
+//
+// In development (Vault disabled): Falls back to environment variables
+// In production (Vault enabled): Fetches from Vault, fails if unavailable
+func (c *Config) LoadSecretsFromVault(ctx context.Context, vaultClient interface{}) error {
+	// Type assertion to avoid circular import
+	// The vaultClient should implement GetSecret(ctx, path, key, envFallback) (string, error)
+	type SecretGetter interface {
+		GetSecret(ctx context.Context, path, key, envFallback string) (string, error)
+		Enabled() bool
+	}
+	
+	// If vault client is nil or disabled, keep ENV-based config
+	if vaultClient == nil {
+		return nil
+	}
+	
+	client, ok := vaultClient.(SecretGetter)
+	if !ok {
+		return fmt.Errorf("invalid vault client type")
+	}
+	
+	if !client.Enabled() {
+		// Vault disabled - ENV vars already loaded
+		return nil
+	}
+	
+	// Build full secret paths
+	basePath := c.Vault.SecretPath
+	
+	// Fetch JWT secret
+	jwtSecret, err := client.GetSecret(ctx, basePath+"/jwt", "secret", "JWT_SECRET")
+	if err != nil {
+		return fmt.Errorf("failed to load JWT secret from vault: %w", err)
+	}
+	c.JWT.Secret = jwtSecret
+	
+	// Fetch database password
+	dbPassword, err := client.GetSecret(ctx, basePath+"/database", "password", "DB_PASSWORD")
+	if err != nil {
+		return fmt.Errorf("failed to load database password from vault: %w", err)
+	}
+	c.Database.Password = dbPassword
+	
+	// Fetch Redis password (optional - can be empty)
+	redisPassword, err := client.GetSecret(ctx, basePath+"/redis", "password", "REDIS_PASSWORD")
+	if err != nil {
+		// Redis password is optional, log but don't fail
+		// Keep ENV value or empty string
+	} else {
+		c.Redis.Password = redisPassword
+	}
+	
+	// Re-validate config after loading secrets
+	if err := Validate(c); err != nil {
+		return fmt.Errorf("config validation failed after loading vault secrets: %w", err)
+	}
+	
+	return nil
 }
