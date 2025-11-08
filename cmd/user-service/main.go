@@ -80,14 +80,43 @@ func main() {
 
 	logger.Info("User service initialized")
 
+	// Initialize OpenTelemetry tracer if enabled
+	var tracerProvider *observability.TracerProvider
+	if cfg.Tracing.Enabled {
+		tracerCfg := observability.TracerConfig{
+			ServiceName:    cfg.Tracing.ServiceName,
+			ServiceVersion: "1.0.0", // TODO: Get from build info
+			Environment:    cfg.AppEnv,
+			OTLPEndpoint:   cfg.Tracing.OTLPEndpoint,
+			Enabled:        cfg.Tracing.Enabled,
+			SampleRate:     cfg.Tracing.SampleRate,
+		}
+
+		tracerProvider, err = observability.NewTracerProvider(ctx, tracerCfg)
+		if err != nil {
+			logger.WithField("error", err.Error()).Warn("Failed to initialize tracer provider, continuing without tracing")
+		} else {
+			defer func() {
+				shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := tracerProvider.Shutdown(shutdownCtx); err != nil {
+					logger.WithField("error", err.Error()).Error("Failed to shutdown tracer provider")
+				}
+			}()
+			logger.Info("OpenTelemetry tracer initialized")
+		}
+	} else {
+		logger.Info("OpenTelemetry tracing is disabled")
+	}
+
 	// Initialize HTTP routers (user-facing and admin-facing)
 	ginMode := "release"
 	if cfg.IsDevelopment() {
 		ginMode = "debug"
 	}
 
-	userRouter := httpTransport.SetupUserRouter(userService, jwtManager, logger, ginMode)
-	adminRouter := httpTransport.SetupAdminRouter(userService, jwtManager, logger, ginMode)
+	userRouter := httpTransport.SetupUserRouter(userService, jwtManager, logger, ginMode, cfg.Tracing.Enabled)
+	adminRouter := httpTransport.SetupAdminRouter(userService, jwtManager, logger, ginMode, cfg.Tracing.Enabled)
 
 	logger.Info("HTTP routers initialized")
 

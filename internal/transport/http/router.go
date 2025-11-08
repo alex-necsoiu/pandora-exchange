@@ -32,6 +32,7 @@ func SetupUserRouter(
 	jwtManager *auth.JWTManager,
 	logger *observability.Logger,
 	mode string, // "release" or "debug"
+	tracingEnabled bool,
 ) *gin.Engine {
 	// Set Gin mode
 	if mode == "release" {
@@ -40,8 +41,14 @@ func SetupUserRouter(
 
 	router := gin.New()
 
-	// Global middleware
+	// Global middleware (order matters: Recovery first, then tracing, then logging, then CORS)
 	router.Use(RecoveryMiddleware(logger))
+	
+	// Add tracing middleware if enabled
+	if tracingEnabled {
+		router.Use(TracingMiddleware("user-service"))
+	}
+	
 	router.Use(LoggingMiddleware(logger))
 	router.Use(CORSMiddleware())
 
@@ -91,13 +98,22 @@ func SetupAdminRouter(
 	jwtManager *auth.JWTManager,
 	logger *observability.Logger,
 	mode string,
+	tracingEnabled bool,
 ) *gin.Engine {
 	if mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
 	router := gin.New()
+	
+	// Global middleware (order matters)
 	router.Use(RecoveryMiddleware(logger))
+	
+	// Add tracing middleware if enabled
+	if tracingEnabled {
+		router.Use(TracingMiddleware("admin-service"))
+	}
+	
 	router.Use(LoggingMiddleware(logger))
 	router.Use(CORSMiddleware())
 

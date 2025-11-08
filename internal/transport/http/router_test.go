@@ -28,7 +28,7 @@ func TestSetupUserRouter(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	router := httpTransport.SetupUserRouter(mockService, jwtManager, logger, "debug")
+	router := httpTransport.SetupUserRouter(mockService, jwtManager, logger, "debug", false)
 
 	testCases := []struct {
 		name           string
@@ -136,7 +136,7 @@ func TestSetupAdminRouter(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	router := httpTransport.SetupAdminRouter(mockService, jwtManager, logger, "debug")
+	router := httpTransport.SetupAdminRouter(mockService, jwtManager, logger, "debug", false)
 
 	testCases := []struct {
 		name        string
@@ -229,8 +229,8 @@ func TestRouterSeparation(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	userRouter := httpTransport.SetupUserRouter(mockService, jwtManager, logger, "debug")
-	adminRouter := httpTransport.SetupAdminRouter(mockService, jwtManager, logger, "debug")
+	userRouter := httpTransport.SetupUserRouter(mockService, jwtManager, logger, "debug", false)
+	adminRouter := httpTransport.SetupAdminRouter(mockService, jwtManager, logger, "debug", false)
 
 	testCases := []struct {
 		name        string
@@ -313,7 +313,7 @@ func TestValidateParamMiddleware(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	adminRouter := httpTransport.SetupAdminRouter(mockService, jwtManager, logger, "debug")
+	adminRouter := httpTransport.SetupAdminRouter(mockService, jwtManager, logger, "debug", false)
 
 	testCases := []struct {
 		name           string
@@ -391,7 +391,7 @@ func TestMiddlewareOrdering(t *testing.T) {
 		{
 			name: "user router has global middleware",
 			setupRouter: func() *gin.Engine {
-				return httpTransport.SetupUserRouter(mockService, jwtManager, logger, "debug")
+				return httpTransport.SetupUserRouter(mockService, jwtManager, logger, "debug", false)
 			},
 			method:      "POST",
 			path:        "/api/v1/auth/register",
@@ -400,7 +400,7 @@ func TestMiddlewareOrdering(t *testing.T) {
 		{
 			name: "admin router has global middleware",
 			setupRouter: func() *gin.Engine {
-				return httpTransport.SetupAdminRouter(mockService, jwtManager, logger, "debug")
+				return httpTransport.SetupAdminRouter(mockService, jwtManager, logger, "debug", false)
 			},
 			method:      "POST",
 			path:        "/admin/auth/login",
@@ -409,7 +409,7 @@ func TestMiddlewareOrdering(t *testing.T) {
 		{
 			name: "protected user routes have auth middleware",
 			setupRouter: func() *gin.Engine {
-				return httpTransport.SetupUserRouter(mockService, jwtManager, logger, "debug")
+				return httpTransport.SetupUserRouter(mockService, jwtManager, logger, "debug", false)
 			},
 			method:      "GET",
 			path:        "/api/v1/users/me",
@@ -418,7 +418,7 @@ func TestMiddlewareOrdering(t *testing.T) {
 		{
 			name: "protected admin routes have auth and admin middleware",
 			setupRouter: func() *gin.Engine {
-				return httpTransport.SetupAdminRouter(mockService, jwtManager, logger, "debug")
+				return httpTransport.SetupAdminRouter(mockService, jwtManager, logger, "debug", false)
 			},
 			method:      "GET",
 			path:        "/admin/users",
@@ -471,7 +471,7 @@ func TestGinModeConfiguration(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create router with specified mode
-			_ = httpTransport.SetupUserRouter(mockService, jwtManager, logger, tc.mode)
+			_ = httpTransport.SetupUserRouter(mockService, jwtManager, logger, tc.mode, false)
 			
 			// Get current Gin mode
 			currentMode := gin.Mode()
@@ -500,12 +500,12 @@ func TestRouterReturnsNonNil(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("user router is not nil", func(t *testing.T) {
-		router := httpTransport.SetupUserRouter(mockService, jwtManager, logger, "debug")
+		router := httpTransport.SetupUserRouter(mockService, jwtManager, logger, "debug", false)
 		assert.NotNil(t, router, "User router should not be nil")
 	})
 
 	t.Run("admin router is not nil", func(t *testing.T) {
-		router := httpTransport.SetupAdminRouter(mockService, jwtManager, logger, "debug")
+		router := httpTransport.SetupAdminRouter(mockService, jwtManager, logger, "debug", false)
 		assert.NotNil(t, router, "Admin router should not be nil")
 	})
 }

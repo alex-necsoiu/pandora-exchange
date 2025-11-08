@@ -7,6 +7,7 @@ import (
 	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
 // AuthMiddleware provides JWT authentication for protected routes.
@@ -128,3 +129,10 @@ func RecoveryMiddleware(logger *observability.Logger) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// TracingMiddleware returns OpenTelemetry tracing middleware for Gin
+// It creates a span for each HTTP request with relevant attributes
+func TracingMiddleware(serviceName string) gin.HandlerFunc {
+	return otelgin.Middleware(serviceName)
+}
+

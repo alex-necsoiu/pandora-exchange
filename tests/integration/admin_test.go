@@ -77,8 +77,8 @@ func setupIntegrationTest(t *testing.T) (*httptest.Server, *httptest.Server, *se
 	require.NoError(t, jwtErr)
 
 	// Setup HTTP routers
-	userRouter := httpTransport.SetupUserRouter(userService, jwtManager, logger, "test")
-	adminRouter := httpTransport.SetupAdminRouter(userService, jwtManager, logger, "test")
+	userRouter := httpTransport.SetupUserRouter(userService, jwtManager, logger, "test", false)
+	adminRouter := httpTransport.SetupAdminRouter(userService, jwtManager, logger, "test", false)
 
 	// Create test servers
 	userServer := httptest.NewServer(userRouter)

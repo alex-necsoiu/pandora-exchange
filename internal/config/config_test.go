@@ -242,8 +242,56 @@ func clearEnv() {
 		"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SSLMODE",
 		"JWT_SECRET", "JWT_ACCESS_TOKEN_EXPIRY", "JWT_REFRESH_TOKEN_EXPIRY",
 		"REDIS_HOST", "REDIS_PORT", "REDIS_PASSWORD", "REDIS_DB",
+		"OTEL_ENABLED", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_SERVICE_NAME", "OTEL_SAMPLE_RATE",
 	}
 	for _, v := range envVars {
 		os.Unsetenv(v)
 	}
 }
+
+// TestTracingConfiguration tests OpenTelemetry tracing configuration
+func TestTracingConfiguration(t *testing.T) {
+	t.Run("default tracing config", func(t *testing.T) {
+		os.Setenv("APP_ENV", "dev")
+		os.Setenv("DB_HOST", "localhost")
+		os.Setenv("DB_PORT", "5432")
+		os.Setenv("DB_USER", "user")
+		os.Setenv("DB_PASSWORD", "pass")
+		os.Setenv("DB_NAME", "db")
+		os.Setenv("JWT_SECRET", "test-secret-key-min-32-characters-long")
+		defer clearEnv()
+
+		cfg, err := config.Load()
+		require.NoError(t, err)
+
+		// Check default values
+		assert.False(t, cfg.Tracing.Enabled)
+		assert.Equal(t, "localhost:4317", cfg.Tracing.OTLPEndpoint)
+		assert.Equal(t, "user-service", cfg.Tracing.ServiceName)
+		assert.Equal(t, 1.0, cfg.Tracing.SampleRate)
+	})
+
+	t.Run("custom tracing config", func(t *testing.T) {
+		os.Setenv("APP_ENV", "prod")
+		os.Setenv("DB_HOST", "localhost")
+		os.Setenv("DB_PORT", "5432")
+		os.Setenv("DB_USER", "user")
+		os.Setenv("DB_PASSWORD", "pass")
+		os.Setenv("DB_NAME", "db")
+		os.Setenv("JWT_SECRET", "test-secret-key-min-32-characters-long")
+		os.Setenv("OTEL_ENABLED", "true")
+		os.Setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "otel-collector:4317")
+		os.Setenv("OTEL_SERVICE_NAME", "pandora-user-service")
+		os.Setenv("OTEL_SAMPLE_RATE", "0.1")
+		defer clearEnv()
+
+		cfg, err := config.Load()
+		require.NoError(t, err)
+
+		assert.True(t, cfg.Tracing.Enabled)
+		assert.Equal(t, "otel-collector:4317", cfg.Tracing.OTLPEndpoint)
+		assert.Equal(t, "pandora-user-service", cfg.Tracing.ServiceName)
+		assert.Equal(t, 0.1, cfg.Tracing.SampleRate)
+	})
+}
+

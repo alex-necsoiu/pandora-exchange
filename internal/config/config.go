@@ -28,6 +28,7 @@ type Config struct {
 	Database DatabaseConfig `mapstructure:",squash"`
 	JWT      JWTConfig      `mapstructure:",squash"`
 	Redis    RedisConfig    `mapstructure:",squash"`
+	Tracing  TracingConfig  `mapstructure:",squash"`
 }
 
 // ServerConfig holds HTTP/gRPC server configuration
@@ -64,6 +65,14 @@ type RedisConfig struct {
 	DB       int    `mapstructure:"REDIS_DB"`
 }
 
+// TracingConfig holds OpenTelemetry tracing configuration
+type TracingConfig struct {
+	Enabled      bool    `mapstructure:"OTEL_ENABLED"`
+	OTLPEndpoint string  `mapstructure:"OTEL_EXPORTER_OTLP_ENDPOINT"`
+	ServiceName  string  `mapstructure:"OTEL_SERVICE_NAME"`
+	SampleRate   float64 `mapstructure:"OTEL_SAMPLE_RATE"`
+}
+
 // Load reads configuration from environment variables
 // Returns error if required variables are missing or invalid
 func Load() (*Config, error) {
@@ -80,6 +89,10 @@ func Load() (*Config, error) {
 	v.SetDefault("REDIS_HOST", "localhost")
 	v.SetDefault("REDIS_PORT", "6379")
 	v.SetDefault("REDIS_DB", 0)
+	v.SetDefault("OTEL_ENABLED", false)
+	v.SetDefault("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
+	v.SetDefault("OTEL_SERVICE_NAME", "user-service")
+	v.SetDefault("OTEL_SAMPLE_RATE", 1.0)
 
 	// Bind environment variables explicitly
 	v.AutomaticEnv()
@@ -92,6 +105,7 @@ func Load() (*Config, error) {
 		"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SSLMODE",
 		"JWT_SECRET", "JWT_ACCESS_TOKEN_EXPIRY", "JWT_REFRESH_TOKEN_EXPIRY",
 		"REDIS_HOST", "REDIS_PORT", "REDIS_PASSWORD", "REDIS_DB",
+		"OTEL_ENABLED", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_SERVICE_NAME", "OTEL_SAMPLE_RATE",
 	}
 	for _, env := range envVars {
 		_ = v.BindEnv(env)
