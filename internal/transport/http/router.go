@@ -3,6 +3,7 @@ package http
 import (
 	"regexp"
 
+	"github.com/alex-necsoiu/pandora-exchange/internal/config"
 	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
 	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
@@ -30,6 +31,8 @@ func ValidateParamMiddleware(param string, re *regexp.Regexp) gin.HandlerFunc {
 func SetupUserRouter(
 	userService domain.UserService,
 	jwtManager *auth.JWTManager,
+	auditRepo domain.AuditRepository,
+	cfg *config.Config,
 	logger *observability.Logger,
 	mode string, // "release" or "debug"
 	tracingEnabled bool,
@@ -41,13 +44,19 @@ func SetupUserRouter(
 
 	router := gin.New()
 
-	// Global middleware (order matters: Recovery first, then tracing, then logging, then CORS)
+	// Global middleware (order matters: Recovery first, then tracing, then audit, then error, then logging, then CORS)
 	router.Use(RecoveryMiddleware(logger))
 	
 	// Add tracing middleware if enabled
 	if tracingEnabled {
 		router.Use(TracingMiddleware("user-service"))
 	}
+	
+	// Audit middleware - logs all requests to audit_logs table
+	router.Use(AuditMiddleware(auditRepo, cfg, logger))
+	
+	// Error middleware - converts domain errors to HTTP responses
+	router.Use(ErrorMiddleware())
 	
 	router.Use(LoggingMiddleware(logger))
 	router.Use(CORSMiddleware())
@@ -96,6 +105,8 @@ func SetupUserRouter(
 func SetupAdminRouter(
 	userService domain.UserService,
 	jwtManager *auth.JWTManager,
+	auditRepo domain.AuditRepository,
+	cfg *config.Config,
 	logger *observability.Logger,
 	mode string,
 	tracingEnabled bool,
@@ -106,13 +117,19 @@ func SetupAdminRouter(
 
 	router := gin.New()
 	
-	// Global middleware (order matters)
+	// Global middleware (order matters: Recovery first, then tracing, then audit, then error, then logging, then CORS)
 	router.Use(RecoveryMiddleware(logger))
 	
 	// Add tracing middleware if enabled
 	if tracingEnabled {
 		router.Use(TracingMiddleware("admin-service"))
 	}
+	
+	// Audit middleware - logs all requests to audit_logs table (CRITICAL for admin actions)
+	router.Use(AuditMiddleware(auditRepo, cfg, logger))
+	
+	// Error middleware - converts domain errors to HTTP responses
+	router.Use(ErrorMiddleware())
 	
 	router.Use(LoggingMiddleware(logger))
 	router.Use(CORSMiddleware())

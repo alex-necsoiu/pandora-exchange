@@ -103,6 +103,7 @@ func main() {
 	// Initialize repositories
 	userRepo := repository.NewUserRepository(dbPool, logger)
 	tokenRepo := repository.NewRefreshTokenRepository(dbPool, logger)
+	auditRepo := repository.NewAuditRepository(dbPool, logger)
 
 	logger.Info("Repositories initialized")
 
@@ -157,8 +158,8 @@ func main() {
 		ginMode = "debug"
 	}
 
-	userRouter := httpTransport.SetupUserRouter(userService, jwtManager, logger, ginMode, cfg.Tracing.Enabled)
-	adminRouter := httpTransport.SetupAdminRouter(userService, jwtManager, logger, ginMode, cfg.Tracing.Enabled)
+	userRouter := httpTransport.SetupUserRouter(userService, jwtManager, auditRepo, cfg, logger, ginMode, cfg.Tracing.Enabled)
+	adminRouter := httpTransport.SetupAdminRouter(userService, jwtManager, auditRepo, cfg, logger, ginMode, cfg.Tracing.Enabled)
 
 	logger.Info("HTTP routers initialized")
 

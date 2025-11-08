@@ -6,29 +6,52 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alex-necsoiu/pandora-exchange/internal/config"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
 	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
+	"github.com/alex-necsoiu/pandora-exchange/internal/mocks"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	httpTransport "github.com/alex-necsoiu/pandora-exchange/internal/transport/http"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/mock"
 )
 
-// TestSetupUserRouter tests the user-facing router configuration
-func TestSetupUserRouter(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+// setupTestRouter is a helper function to create test dependencies
+func setupTestRouter() (*MockUserService, *auth.JWTManager, *mocks.MockAuditRepository, *config.Config, *observability.Logger) {
 	logger := observability.NewLogger("test", "test-service")
 	mockService := &MockUserService{}
+	mockAuditRepo := &mocks.MockAuditRepository{}
+	
+	// Configure audit mock to accept any Create call (audit middleware will be invoked on every request)
+	mockAuditRepo.On("Create", mock.Anything, mock.Anything).Return(&domain.AuditLog{}, nil).Maybe()
 	
 	jwtManager, err := auth.NewJWTManager(
 		"test-secret-key-must-be-at-least-32-characters-long",
 		15*time.Minute,
 		7*24*time.Hour,
 	)
-	require.NoError(t, err)
+	if err != nil {
+		panic(err) // Fatal error in test setup
+	}
+	
+	// Create a minimal test config
+	testCfg := &config.Config{
+		Audit: config.AuditConfig{
+			RetentionDays: 90,
+		},
+	}
+	
+	return mockService, jwtManager, mockAuditRepo, testCfg, logger
+}
 
-	router := httpTransport.SetupUserRouter(mockService, jwtManager, logger, "debug", false)
+// TestSetupUserRouter tests the user-facing router configuration
+func TestSetupUserRouter(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockService, jwtManager, mockAuditRepo, testCfg, logger := setupTestRouter()
+
+	router := httpTransport.SetupUserRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false)
 
 	testCases := []struct {
 		name           string
@@ -126,17 +149,9 @@ func TestSetupUserRouter(t *testing.T) {
 // TestSetupAdminRouter tests the admin-only router configuration
 func TestSetupAdminRouter(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	logger := observability.NewLogger("test", "test-service")
-	mockService := &MockUserService{}
-	
-	jwtManager, err := auth.NewJWTManager(
-		"test-secret-key-must-be-at-least-32-characters-long",
-		15*time.Minute,
-		7*24*time.Hour,
-	)
-	require.NoError(t, err)
+	mockService, jwtManager, mockAuditRepo, testCfg, logger := setupTestRouter()
 
-	router := httpTransport.SetupAdminRouter(mockService, jwtManager, logger, "debug", false)
+	router := httpTransport.SetupAdminRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false)
 
 	testCases := []struct {
 		name        string
@@ -219,18 +234,10 @@ func TestSetupAdminRouter(t *testing.T) {
 // TestRouterSeparation tests that user and admin routers are properly separated
 func TestRouterSeparation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	logger := observability.NewLogger("test", "test-service")
-	mockService := &MockUserService{}
-	
-	jwtManager, err := auth.NewJWTManager(
-		"test-secret-key-must-be-at-least-32-characters-long",
-		15*time.Minute,
-		7*24*time.Hour,
-	)
-	require.NoError(t, err)
+	mockService, jwtManager, mockAuditRepo, testCfg, logger := setupTestRouter()
 
-	userRouter := httpTransport.SetupUserRouter(mockService, jwtManager, logger, "debug", false)
-	adminRouter := httpTransport.SetupAdminRouter(mockService, jwtManager, logger, "debug", false)
+	userRouter := httpTransport.SetupUserRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false)
+	adminRouter := httpTransport.SetupAdminRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false)
 
 	testCases := []struct {
 		name        string
@@ -303,17 +310,9 @@ func TestRouterSeparation(t *testing.T) {
 // TestValidateParamMiddleware tests the UUID validation middleware
 func TestValidateParamMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	logger := observability.NewLogger("test", "test-service")
-	mockService := &MockUserService{}
-	
-	jwtManager, err := auth.NewJWTManager(
-		"test-secret-key-must-be-at-least-32-characters-long",
-		15*time.Minute,
-		7*24*time.Hour,
-	)
-	require.NoError(t, err)
+	mockService, jwtManager, mockAuditRepo, testCfg, logger := setupTestRouter()
 
-	adminRouter := httpTransport.SetupAdminRouter(mockService, jwtManager, logger, "debug", false)
+	adminRouter := httpTransport.SetupAdminRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false)
 
 	testCases := []struct {
 		name           string
@@ -371,15 +370,7 @@ func TestValidateParamMiddleware(t *testing.T) {
 // TestMiddlewareOrdering tests that middleware is applied in the correct order
 func TestMiddlewareOrdering(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	logger := observability.NewLogger("test", "test-service")
-	mockService := &MockUserService{}
-	
-	jwtManager, err := auth.NewJWTManager(
-		"test-secret-key-must-be-at-least-32-characters-long",
-		15*time.Minute,
-		7*24*time.Hour,
-	)
-	require.NoError(t, err)
+	mockService, jwtManager, mockAuditRepo, testCfg, logger := setupTestRouter()
 
 	testCases := []struct {
 		name        string
@@ -391,7 +382,7 @@ func TestMiddlewareOrdering(t *testing.T) {
 		{
 			name: "user router has global middleware",
 			setupRouter: func() *gin.Engine {
-				return httpTransport.SetupUserRouter(mockService, jwtManager, logger, "debug", false)
+				return httpTransport.SetupUserRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false)
 			},
 			method:      "POST",
 			path:        "/api/v1/auth/register",
@@ -400,7 +391,7 @@ func TestMiddlewareOrdering(t *testing.T) {
 		{
 			name: "admin router has global middleware",
 			setupRouter: func() *gin.Engine {
-				return httpTransport.SetupAdminRouter(mockService, jwtManager, logger, "debug", false)
+				return httpTransport.SetupAdminRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false)
 			},
 			method:      "POST",
 			path:        "/admin/auth/login",
@@ -409,7 +400,7 @@ func TestMiddlewareOrdering(t *testing.T) {
 		{
 			name: "protected user routes have auth middleware",
 			setupRouter: func() *gin.Engine {
-				return httpTransport.SetupUserRouter(mockService, jwtManager, logger, "debug", false)
+				return httpTransport.SetupUserRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false)
 			},
 			method:      "GET",
 			path:        "/api/v1/users/me",
@@ -418,7 +409,7 @@ func TestMiddlewareOrdering(t *testing.T) {
 		{
 			name: "protected admin routes have auth and admin middleware",
 			setupRouter: func() *gin.Engine {
-				return httpTransport.SetupAdminRouter(mockService, jwtManager, logger, "debug", false)
+				return httpTransport.SetupAdminRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false)
 			},
 			method:      "GET",
 			path:        "/admin/users",
@@ -444,15 +435,7 @@ func TestMiddlewareOrdering(t *testing.T) {
 
 // TestGinModeConfiguration tests that Gin mode is set correctly
 func TestGinModeConfiguration(t *testing.T) {
-	logger := observability.NewLogger("test", "test-service")
-	mockService := &MockUserService{}
-	
-	jwtManager, err := auth.NewJWTManager(
-		"test-secret-key-must-be-at-least-32-characters-long",
-		15*time.Minute,
-		7*24*time.Hour,
-	)
-	require.NoError(t, err)
+	mockService, jwtManager, mockAuditRepo, testCfg, logger := setupTestRouter()
 
 	testCases := []struct {
 		name         string
@@ -471,7 +454,7 @@ func TestGinModeConfiguration(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create router with specified mode
-			_ = httpTransport.SetupUserRouter(mockService, jwtManager, logger, tc.mode, false)
+			_ = httpTransport.SetupUserRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, tc.mode, false)
 			
 			// Get current Gin mode
 			currentMode := gin.Mode()
@@ -489,23 +472,15 @@ func TestGinModeConfiguration(t *testing.T) {
 // TestRouterReturnsNonNil tests that router setup functions return valid routers
 func TestRouterReturnsNonNil(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	logger := observability.NewLogger("test", "test-service")
-	mockService := &MockUserService{}
-	
-	jwtManager, err := auth.NewJWTManager(
-		"test-secret-key-must-be-at-least-32-characters-long",
-		15*time.Minute,
-		7*24*time.Hour,
-	)
-	require.NoError(t, err)
+	mockService, jwtManager, mockAuditRepo, testCfg, logger := setupTestRouter()
 
 	t.Run("user router is not nil", func(t *testing.T) {
-		router := httpTransport.SetupUserRouter(mockService, jwtManager, logger, "debug", false)
+		router := httpTransport.SetupUserRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false)
 		assert.NotNil(t, router, "User router should not be nil")
 	})
 
 	t.Run("admin router is not nil", func(t *testing.T) {
-		router := httpTransport.SetupAdminRouter(mockService, jwtManager, logger, "debug", false)
+		router := httpTransport.SetupAdminRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false)
 		assert.NotNil(t, router, "Admin router should not be nil")
 	})
 }
