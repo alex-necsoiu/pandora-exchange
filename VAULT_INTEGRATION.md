@@ -248,6 +248,10 @@ kubectl logs -n pandora user-service-xxxxx -c user-service | grep -i vault
 
 ### Test Vault Integration Locally
 
+For detailed testing instructions, see [internal/vault/TESTING.md](internal/vault/TESTING.md).
+
+**Quick Start:**
+
 1. **Run Vault Dev Server:**
 ```bash
 # Terminal 1: Start Vault dev server
@@ -289,18 +293,27 @@ export VAULT_SECRET_PATH=secret/data/pandora/user-service
 
 ### Integration Tests
 
-Integration tests skip Vault by default. To test with Vault:
+Integration tests verify the Vault client works end-to-end with a real Vault dev server.
 
+**Run integration tests:**
 ```bash
-# Start Vault dev server first
-vault server -dev
-
-# Run integration tests with Vault
-VAULT_ENABLED=true \
-VAULT_ADDR=http://127.0.0.1:8200 \
-VAULT_TOKEN=<root token> \
-go test ./tests/integration/... -v
+# Requires Vault binary in PATH
+VAULT_INTEGRATION_TESTS=true go test ./internal/vault/... -v
 ```
+
+**What's tested:**
+- Client initialization and health checks
+- Secret fetching (single and batch)
+- ENV fallback behavior
+- Error handling (invalid tokens, unreachable Vault, timeouts)
+- Disabled client behavior
+
+**Test coverage:**
+- 6 integration test suites
+- 15+ test scenarios
+- Covers all critical paths
+
+See [internal/vault/TESTING.md](internal/vault/TESTING.md) for complete testing guide.
 
 ---
 
