@@ -1,7 +1,7 @@
 # Pandora Exchange - User Service Makefile
 # Architecture-compliant build automation
 
-.PHONY: help dev-up dev-down migrate migrate-down migrate-force migrate-version migrate-create sqlc test test-coverage lint build run docker-build clean proto install-tools
+.PHONY: help dev dev-up dev-down migrate migrate-down migrate-force migrate-version migrate-create sqlc test test-coverage lint build run docker-build clean proto install-tools
 
 # Variables
 SERVICE_NAME := user-service
@@ -30,6 +30,7 @@ help:
 	@echo "  make lint            - Run golangci-lint"
 	@echo "  make build           - Build service binary"
 	@echo "  make run             - Run service locally"
+	@echo "  make dev             - Start dev environment, migrate, build and run service"
 	@echo "  make docker-build    - Build Docker image"
 	@echo "  make clean           - Clean build artifacts"
 	@echo "  make install-tools   - Install required development tools"
@@ -146,6 +147,29 @@ build:
 run: build
 	@echo "Starting $(SERVICE_NAME)..."
 	./bin/$(SERVICE_NAME)
+
+## dev: Start dev environment, migrate, build and run service (one command for everything)
+dev:
+	@echo "🚀 Starting complete development environment..."
+	@echo ""
+	@echo "Step 1/4: Starting Docker containers (PostgreSQL + Redis)..."
+	@$(MAKE) dev-up
+	@echo ""
+	@echo "Step 2/4: Running database migrations..."
+	@$(MAKE) migrate
+	@echo ""
+	@echo "Step 3/4: Building service binary..."
+	@$(MAKE) build
+	@echo ""
+	@echo "Step 4/4: Starting service..."
+	@if [ ! -f .env.dev ]; then \
+		echo "❌ ERROR: .env.dev file not found"; \
+		echo "Please create .env.dev with required environment variables"; \
+		echo "See .env.dev.example for reference"; \
+		exit 1; \
+	fi
+	@echo "Loading environment from .env.dev..."
+	@export $$(cat .env.dev | xargs) && ./bin/$(SERVICE_NAME)
 
 ## docker-build: Build Docker image
 docker-build:

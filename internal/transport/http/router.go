@@ -1,14 +1,33 @@
 package http
 
 import (
+	"regexp"
+
 	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
 	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	"github.com/gin-gonic/gin"
 )
 
-// SetupRouter configures and returns a Gin router with all routes and middleware.
-func SetupRouter(
+// ValidateParamMiddleware returns a middleware that validates a named param against provided regex.
+func ValidateParamMiddleware(param string, re *regexp.Regexp) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		val := c.Param(param)
+		if val == "" {
+			// no param present — continue
+			c.Next()
+			return
+		}
+		if !re.MatchString(val) {
+			c.AbortWithStatusJSON(400, gin.H{"error": "invalid parameter"})
+			return
+		}
+		c.Next()
+	}
+}
+
+// SetupUserRouter configures and returns a Gin router for user-facing endpoints only.
+func SetupUserRouter(
 	userService domain.UserService,
 	jwtManager *auth.JWTManager,
 	logger *observability.Logger,
@@ -28,12 +47,11 @@ func SetupRouter(
 
 	// Create handler
 	handler := NewHandler(userService, logger)
-	adminHandler := NewAdminHandler(userService, logger)
 
 	// Health check (no auth required)
 	router.GET("/health", handler.HealthCheck)
 
-	// API v1 routes
+	// API v1 routes (user-facing)
 	v1 := router.Group("/api/v1")
 	{
 		// Public auth routes (no authentication required)
@@ -56,28 +74,61 @@ func SetupRouter(
 			users.POST("/me/logout", handler.Logout)
 			users.POST("/me/logout-all", handler.LogoutAll)
 
-			// Admin endpoints (KYC management) - requires admin role
-			users.PUT("/:id/kyc", AdminMiddleware(logger), handler.UpdateKYC)
+			// KYC update (only numeric/uuid id allowed) - validate id param
+			uuidRe := regexp.MustCompile(`^[a-f0-9-]{36}$`)
+			users.PUT("/:id/kyc", ValidateParamMiddleware("id", uuidRe), AdminMiddleware(logger), handler.UpdateKYC)
 		}
+	}
 
-		// Admin routes (authentication + admin role required)
-		admin := v1.Group("/admin")
-		admin.Use(AuthMiddleware(jwtManager, logger))
-		admin.Use(AdminMiddleware(logger))
-		{
-			// User management
-			admin.GET("/users", adminHandler.ListUsers)
-			admin.GET("/users/search", adminHandler.SearchUsers)
-			admin.GET("/users/:id", adminHandler.GetUser)
-			admin.PUT("/users/:id/role", adminHandler.UpdateUserRole)
+	return router
+}
 
-			// Session management
-			admin.GET("/sessions", adminHandler.GetAllSessions)
-			admin.POST("/sessions/revoke", adminHandler.ForceLogout)
+// SetupAdminRouter configures and returns a Gin router for admin-only endpoints.
+// This router is intended to be started as a separate HTTP server (different port) so
+// admin routes never share the same server instance or path space with user routes.
+func SetupAdminRouter(
+	userService domain.UserService,
+	jwtManager *auth.JWTManager,
+	logger *observability.Logger,
+	mode string,
+) *gin.Engine {
+	if mode == "release" {
+		gin.SetMode(gin.ReleaseMode)
+	}
 
-			// System statistics
-			admin.GET("/stats", adminHandler.GetSystemStats)
-		}
+	router := gin.New()
+	router.Use(RecoveryMiddleware(logger))
+	router.Use(LoggingMiddleware(logger))
+	router.Use(CORSMiddleware())
+
+	adminHandler := NewAdminHandler(userService, logger)
+	adminAuthHandler := NewAdminAuthHandler(userService, logger)
+
+	// Admin auth routes (NO authentication required - this is the login endpoint)
+	auth := router.Group("/admin/auth")
+	{
+		auth.POST("/login", adminAuthHandler.AdminLogin)
+		auth.POST("/refresh", adminAuthHandler.AdminRefreshToken)
+	}
+
+	// Admin routes are mounted under /admin to keep separation of concerns.
+	// All routes require authentication + admin role.
+	admin := router.Group("/admin")
+	admin.Use(AuthMiddleware(jwtManager, logger))
+	admin.Use(AdminMiddleware(logger))
+	{
+		// Validate UUID params using a conservative regex
+		uuidRe := regexp.MustCompile(`^[a-f0-9-]{36}$`)
+
+		admin.GET("/users", adminHandler.ListUsers)
+		admin.GET("/users/search", adminHandler.SearchUsers)
+		admin.GET("/users/:id", ValidateParamMiddleware("id", uuidRe), adminHandler.GetUser)
+		admin.PUT("/users/:id/role", ValidateParamMiddleware("id", uuidRe), adminHandler.UpdateUserRole)
+
+		admin.GET("/sessions", adminHandler.GetAllSessions)
+		admin.POST("/sessions/revoke", adminHandler.ForceLogout)
+
+		admin.GET("/stats", adminHandler.GetSystemStats)
 	}
 
 	return router

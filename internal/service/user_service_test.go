@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	domainAuth "github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	"github.com/alex-necsoiu/pandora-exchange/internal/service"
 	"github.com/google/uuid"
@@ -368,6 +369,163 @@ func TestRefreshToken(t *testing.T) {
 
 		_, err = svc.RefreshToken(ctx, "invalid-token", "1.1.1.1", "UA")
 		assert.Error(t, err)
+	})
+}
+
+// TestAdminLogin tests admin-only login functionality
+func TestAdminLogin(t *testing.T) {
+	t.Run("admin login successfully", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		userID := uuid.New()
+		email := "admin@example.com"
+		password := "AdminPassword123"
+
+		// Create admin user with properly hashed password
+		hashedPassword, err := domainAuth.HashPassword(password)
+		require.NoError(t, err)
+
+		adminUser := &domain.User{
+			ID:             userID,
+			Email:          email,
+			HashedPassword: hashedPassword,
+			Role:           domain.RoleAdmin, // ADMIN ROLE
+			FirstName:      "Admin",
+			LastName:       "User",
+		}
+
+		userRepo.On("GetByEmail", ctx, email).Return(adminUser, nil)
+		tokenRepo.On("Create", ctx, mock.AnythingOfType("string"), userID, mock.AnythingOfType("time.Time"), "192.168.1.100", "Admin-Client").
+			Return(&domain.RefreshToken{Token: "admin-refresh-token", UserID: userID}, nil)
+
+		tokenPair, err := svc.AdminLogin(ctx, email, password, "192.168.1.100", "Admin-Client")
+		require.NoError(t, err)
+		assert.NotEmpty(t, tokenPair.AccessToken)
+		assert.NotEmpty(t, tokenPair.RefreshToken)
+
+		userRepo.AssertExpectations(t)
+		tokenRepo.AssertExpectations(t)
+	})
+
+	t.Run("admin login with regular user fails", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		userID := uuid.New()
+		email := "user@example.com"
+		password := "UserPassword123"
+
+		hashedPassword, err := domainAuth.HashPassword(password)
+		require.NoError(t, err)
+
+		// Regular user (NOT admin)
+		regularUser := &domain.User{
+			ID:             userID,
+			Email:          email,
+			HashedPassword: hashedPassword,
+			Role:           domain.RoleUser, // REGULAR USER
+			FirstName:      "Regular",
+			LastName:       "User",
+		}
+
+		userRepo.On("GetByEmail", ctx, email).Return(regularUser, nil)
+
+		_, err = svc.AdminLogin(ctx, email, password, "192.168.1.1", "User-Client")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "admin")
+
+		userRepo.AssertExpectations(t)
+		// tokenRepo should NOT be called - no token created for non-admin
+		tokenRepo.AssertNotCalled(t, "Create")
+	})
+
+	t.Run("admin login with invalid credentials fails", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		userID := uuid.New()
+		email := "admin@example.com"
+
+		hashedPassword, err := domainAuth.HashPassword("CorrectPassword")
+		require.NoError(t, err)
+
+		adminUser := &domain.User{
+			ID:             userID,
+			Email:          email,
+			HashedPassword: hashedPassword,
+			Role:           domain.RoleAdmin,
+		}
+
+		userRepo.On("GetByEmail", ctx, email).Return(adminUser, nil)
+
+		_, err = svc.AdminLogin(ctx, email, "WrongPassword", "192.168.1.1", "Admin-Client")
+		assert.ErrorIs(t, err, domain.ErrInvalidCredentials)
+
+		userRepo.AssertExpectations(t)
+		tokenRepo.AssertNotCalled(t, "Create")
+	})
+
+	t.Run("admin login with non-existent user fails", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		userRepo.On("GetByEmail", ctx, "nonexistent@example.com").Return(nil, domain.ErrUserNotFound)
+
+		_, err = svc.AdminLogin(ctx, "nonexistent@example.com", "password", "192.168.1.1", "Admin-Client")
+		assert.ErrorIs(t, err, domain.ErrInvalidCredentials)
+
+		userRepo.AssertExpectations(t)
+		tokenRepo.AssertNotCalled(t, "Create")
+	})
+
+	t.Run("admin login with deleted account fails", func(t *testing.T) {
+		userRepo := new(MockUserRepository)
+		tokenRepo := new(MockRefreshTokenRepository)
+
+		svc, err := service.NewUserService(userRepo, tokenRepo, "test-secret-key-min-32-characters", 15*time.Minute, 7*24*time.Hour, getTestLogger())
+		require.NoError(t, err)
+
+		ctx := context.Background()
+		userID := uuid.New()
+		email := "deleted-admin@example.com"
+
+		hashedPassword, err := domainAuth.HashPassword("password")
+		require.NoError(t, err)
+
+		deletedTime := time.Now()
+		deletedAdminUser := &domain.User{
+			ID:             userID,
+			Email:          email,
+			HashedPassword: hashedPassword,
+			Role:           domain.RoleAdmin,
+			DeletedAt:      &deletedTime, // Account is deleted
+		}
+
+		userRepo.On("GetByEmail", ctx, email).Return(deletedAdminUser, nil)
+
+		_, err = svc.AdminLogin(ctx, email, "password", "192.168.1.1", "Admin-Client")
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "deleted")
+
+		userRepo.AssertExpectations(t)
+		tokenRepo.AssertNotCalled(t, "Create")
 	})
 }
 

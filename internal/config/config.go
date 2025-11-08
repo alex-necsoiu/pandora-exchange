@@ -35,6 +35,8 @@ type ServerConfig struct {
 	Port     string `mapstructure:"SERVER_PORT"`
 	Host     string `mapstructure:"SERVER_HOST"`
 	GRPCPort string `mapstructure:"GRPC_PORT"`
+	// AdminPort holds the HTTP port for the admin-only server
+	AdminPort string `mapstructure:"ADMIN_PORT"`
 }
 
 // DatabaseConfig holds PostgreSQL connection configuration
@@ -71,6 +73,7 @@ func Load() (*Config, error) {
 	v.SetDefault("SERVER_PORT", "8080")
 	v.SetDefault("SERVER_HOST", "0.0.0.0")
 	v.SetDefault("GRPC_PORT", "9090")
+	v.SetDefault("ADMIN_PORT", "8081")
 	v.SetDefault("DB_SSLMODE", "disable")
 	v.SetDefault("JWT_ACCESS_TOKEN_EXPIRY", "15m")
 	v.SetDefault("JWT_REFRESH_TOKEN_EXPIRY", "168h") // 7 days
@@ -85,6 +88,7 @@ func Load() (*Config, error) {
 	envVars := []string{
 		"APP_ENV",
 		"SERVER_PORT", "SERVER_HOST", "GRPC_PORT",
+		"ADMIN_PORT",
 		"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "DB_SSLMODE",
 		"JWT_SECRET", "JWT_ACCESS_TOKEN_EXPIRY", "JWT_REFRESH_TOKEN_EXPIRY",
 		"REDIS_HOST", "REDIS_PORT", "REDIS_PASSWORD", "REDIS_DB",

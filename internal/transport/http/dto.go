@@ -18,13 +18,13 @@ type RegisterRequest struct {
 
 // LoginRequest represents the request body for user login.
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 // RefreshTokenRequest represents the request body for token refresh.
 type RefreshTokenRequest struct {
-	RefreshToken string `json:"refresh_token" binding:"required"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 // LogoutRequest represents the request body for logout.
@@ -177,7 +177,7 @@ type AdminForceLogoutRequest struct {
 
 // AdminUpdateRoleRequest represents the request to update a user's role.
 type AdminUpdateRoleRequest struct {
-	Role string `json:"role" binding:"required,oneof=user admin"`
+	Role string `json:"role" binding:"required"`
 }
 
 // AdminStatsResponse represents system statistics for admin dashboard.

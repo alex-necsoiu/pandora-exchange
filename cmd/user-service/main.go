@@ -80,35 +80,57 @@ func main() {
 
 	logger.Info("User service initialized")
 
-	// Initialize HTTP router
+	// Initialize HTTP routers (user-facing and admin-facing)
 	ginMode := "release"
 	if cfg.IsDevelopment() {
 		ginMode = "debug"
 	}
 
-	router := httpTransport.SetupRouter(userService, jwtManager, logger, ginMode)
+	userRouter := httpTransport.SetupUserRouter(userService, jwtManager, logger, ginMode)
+	adminRouter := httpTransport.SetupAdminRouter(userService, jwtManager, logger, ginMode)
 
-	logger.Info("HTTP router initialized")
+	logger.Info("HTTP routers initialized")
 
-	// Create HTTP server
-	serverAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
-	server := &http.Server{
-		Addr:         serverAddr,
-		Handler:      router,
+	// Create HTTP servers: user-facing and admin-facing (separate ports)
+	userAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
+	adminAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.AdminPort)
+
+	userServer := &http.Server{
+		Addr:         userAddr,
+		Handler:      userRouter,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Start server in a goroutine
+	adminServer := &http.Server{
+		Addr:         adminAddr,
+		Handler:      adminRouter,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	// Start user server
 	go func() {
-		logger.WithField("address", serverAddr).Info("Starting HTTP server")
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.WithField("error", err.Error()).Fatal("HTTP server failed")
+		logger.WithField("address", userAddr).Info("Starting user HTTP server")
+		if err := userServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.WithField("error", err.Error()).Fatal("User HTTP server failed")
 		}
 	}()
 
-	logger.WithField("address", serverAddr).Info("User Service started successfully")
+	// Start admin server
+	go func() {
+		logger.WithField("address", adminAddr).Info("Starting admin HTTP server")
+		if err := adminServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.WithField("error", err.Error()).Fatal("Admin HTTP server failed")
+		}
+	}()
+
+	logger.WithFields(map[string]interface{}{
+		"user_address":  userAddr,
+		"admin_address": adminAddr,
+	}).Info("User Service started successfully")
 
 	// Wait for interrupt signal to gracefully shutdown the server
 	quit := make(chan os.Signal, 1)
@@ -117,12 +139,15 @@ func main() {
 
 	logger.Info("Shutting down server...")
 
-	// Graceful shutdown with timeout
+	// Graceful shutdown with timeout for both servers
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := server.Shutdown(ctx); err != nil {
-		logger.WithField("error", err.Error()).Error("Server forced to shutdown")
+	if err := userServer.Shutdown(ctx); err != nil {
+		logger.WithField("error", err.Error()).Error("User server forced to shutdown")
+	}
+	if err := adminServer.Shutdown(ctx); err != nil {
+		logger.WithField("error", err.Error()).Error("Admin server forced to shutdown")
 	}
 
 	logger.Info("Server stopped gracefully")

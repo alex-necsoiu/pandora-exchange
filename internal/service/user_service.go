@@ -196,6 +196,141 @@ func (s *UserService) Login(ctx context.Context, email, password, ipAddress, use
 	}, nil
 }
 
+// AdminLogin authenticates an admin user and returns access/refresh tokens.
+// This method validates that the user has admin role before issuing tokens.
+// It should only be called from admin server endpoints to enforce separation of concerns.
+//
+// Security: This prevents regular users from authenticating via admin endpoints.
+// Admin accounts can only login through the admin server (different port/network).
+func (s *UserService) AdminLogin(ctx context.Context, email, password, ipAddress, userAgent string) (*domain.TokenPair, error) {
+	s.logger.WithFields(map[string]interface{}{
+		"email":      email,
+		"ip_address": ipAddress,
+		"user_agent": userAgent,
+	}).Info("admin login attempt started")
+
+	// Get user by email
+	user, err := s.userRepo.GetByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			s.logger.WithField("email", email).Warn("admin login failed: user not found")
+			
+			// Log security event for failed admin login attempt
+			s.auditLogger.LogSecurityEvent("admin.login.failed", "high", map[string]interface{}{
+				"email":      email,
+				"ip_address": ipAddress,
+				"reason":     "user_not_found",
+			})
+			
+			return nil, domain.ErrInvalidCredentials
+		}
+		s.logger.WithError(err).WithField("email", email).Error("failed to get user from repository")
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// Check if account is deleted
+	if user.IsDeleted() {
+		s.logger.WithFields(map[string]interface{}{
+			"user_id": user.ID.String(),
+			"email":   email,
+		}).Warn("admin login failed: account is deleted")
+		
+		s.auditLogger.LogSecurityEvent("admin.login.deleted_account", "high", map[string]interface{}{
+			"user_id":    user.ID.String(),
+			"email":      email,
+			"ip_address": ipAddress,
+		})
+		
+		return nil, fmt.Errorf("account is deleted")
+	}
+
+	// Verify password
+	if err := auth.VerifyPassword(user.HashedPassword, password); err != nil {
+		if errors.Is(err, auth.ErrInvalidPassword) {
+			s.logger.WithFields(map[string]interface{}{
+				"user_id": user.ID.String(),
+				"email":   email,
+			}).Warn("admin login failed: invalid password")
+			
+			// Log security event for failed admin login
+			s.auditLogger.LogSecurityEvent("admin.login.failed", "high", map[string]interface{}{
+				"user_id":    user.ID.String(),
+				"email":      email,
+				"ip_address": ipAddress,
+				"reason":     "invalid_password",
+			})
+			
+			return nil, domain.ErrInvalidCredentials
+		}
+		s.logger.WithError(err).WithField("user_id", user.ID.String()).Error("password verification error")
+		return nil, fmt.Errorf("failed to verify password: %w", err)
+	}
+
+	// CRITICAL: Verify user has admin role
+	if !user.IsAdmin() {
+		s.logger.WithFields(map[string]interface{}{
+			"user_id": user.ID.String(),
+			"email":   email,
+			"role":    user.Role,
+		}).Warn("admin login failed: user is not an admin")
+		
+		// Log high-severity security event - non-admin attempting admin access
+		s.auditLogger.LogSecurityEvent("admin.login.unauthorized", "high", map[string]interface{}{
+			"user_id":    user.ID.String(),
+			"email":      email,
+			"role":       user.Role.String(),
+			"ip_address": ipAddress,
+		})
+		
+		return nil, fmt.Errorf("admin access required")
+	}
+
+	// Generate access token with admin role
+	accessToken, err := s.jwtManager.GenerateAccessToken(user.ID, user.Email, user.Role.String())
+	if err != nil {
+		s.logger.WithError(err).WithField("user_id", user.ID.String()).Error("failed to generate access token")
+		return nil, fmt.Errorf("failed to generate access token: %w", err)
+	}
+
+	// Generate refresh token
+	refreshToken, err := s.jwtManager.GenerateRefreshToken(user.ID)
+	if err != nil {
+		s.logger.WithError(err).WithField("user_id", user.ID.String()).Error("failed to generate refresh token")
+		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	// Store refresh token in database
+	expiresAt := time.Now().Add(s.refreshTokenExpiry)
+	_, err = s.refreshTokenRepo.Create(ctx, refreshToken, user.ID, expiresAt, ipAddress, userAgent)
+	if err != nil {
+		s.logger.WithError(err).WithField("user_id", user.ID.String()).Error("failed to store refresh token")
+		return nil, fmt.Errorf("failed to store refresh token: %w", err)
+	}
+
+	// Log successful admin login as critical audit event
+	s.auditLogger.LogEvent("admin.login.success", map[string]interface{}{
+		"user_id":    user.ID.String(),
+		"email":      user.Email,
+		"role":       user.Role.String(),
+		"ip_address": ipAddress,
+		"user_agent": userAgent,
+	})
+
+	s.logger.WithFields(map[string]interface{}{
+		"user_id":    user.ID.String(),
+		"email":      user.Email,
+		"role":       user.Role.String(),
+		"ip_address": ipAddress,
+	}).Info("admin logged in successfully")
+
+	return &domain.TokenPair{
+		User:         user,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresAt:    expiresAt,
+	}, nil
+}
+
 // RefreshToken generates a new token pair from a valid refresh token
 func (s *UserService) RefreshToken(ctx context.Context, refreshToken, ipAddress, userAgent string) (*domain.TokenPair, error) {
 	s.logger.WithField("ip_address", ipAddress).Info("token refresh attempt")

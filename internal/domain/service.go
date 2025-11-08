@@ -20,6 +20,12 @@ type UserService interface {
 	// Returns error if credentials are invalid or account is deleted.
 	Login(ctx context.Context, email, password, ipAddress, userAgent string) (*TokenPair, error)
 
+	// AdminLogin authenticates an admin user with email and password.
+	// Validates that the user has admin role before issuing tokens.
+	// Returns error if credentials are invalid, account is deleted, or user is not an admin.
+	// This method should only be called from the admin server's auth endpoints.
+	AdminLogin(ctx context.Context, email, password, ipAddress, userAgent string) (*TokenPair, error)
+
 	// RefreshToken validates a refresh token and issues a new token pair.
 	// Old refresh token is revoked and a new one is issued (token rotation).
 	// Returns error if refresh token is invalid, expired, or revoked.
