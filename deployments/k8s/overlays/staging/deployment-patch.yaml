@@ -1,0 +1,19 @@
+# Staging deployment patches
+# Similar to production but with reduced resources
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+spec:
+  replicas: 2  # 2 replicas for staging
+  template:
+    spec:
+      containers:
+      - name: user-service
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"

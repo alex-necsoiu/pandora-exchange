@@ -1,0 +1,37 @@
+# Kustomization for Staging environment
+# Pre-production testing environment
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: pandora
+
+# Inherit base manifests
+bases:
+- ../../base
+
+# Staging suffix
+nameSuffix: -staging
+
+# Override ConfigMap for staging
+configMapGenerator:
+- name: user-service-config
+  behavior: merge
+  literals:
+  - app_env=sandbox
+  - db_name=pandora_staging
+  - db_sslmode=require
+  - audit_retention_days=90
+  - audit_cleanup_interval=24h
+
+# Staging-specific patches
+patchesStrategicMerge:
+- deployment-patch.yaml
+
+# Labels for staging
+commonLabels:
+  environment: staging
+  app.kubernetes.io/version: staging-latest
+
+images:
+- name: pandora/user-service
+  newTag: staging-latest

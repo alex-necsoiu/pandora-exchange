@@ -1,0 +1,250 @@
+# User Service Deployment
+# Manages the lifecycle of User Service pods with auto-restart, health checks, and resource limits
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: pandora
+  labels:
+    app: user-service
+    service: user-service
+    version: v1.0.0
+    component: backend
+spec:
+  # High availability: Run 3 replicas for fault tolerance
+  replicas: 3
+  
+  # Rolling update strategy: Zero-downtime deployments
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1        # Max 1 extra pod during update
+      maxUnavailable: 0  # Always keep all pods running
+  
+  selector:
+    matchLabels:
+      app: user-service
+  
+  template:
+    metadata:
+      labels:
+        app: user-service
+        service: user-service
+        version: v1.0.0
+      annotations:
+        # Prometheus scraping annotations
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    
+    spec:
+      # Security: Run as non-root user
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      
+      # Graceful shutdown: Wait for connections to drain
+      terminationGracePeriodSeconds: 30
+      
+      containers:
+      - name: user-service
+        image: pandora/user-service:latest  # TODO: Use specific version tags
+        imagePullPolicy: Always
+        
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        - name: grpc
+          containerPort: 9090
+          protocol: TCP
+        
+        # Environment variables from ConfigMap and Secret
+        env:
+        - name: APP_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: user-service-config
+              key: app_env
+        
+        - name: SERVER_PORT
+          value: "8080"
+        
+        - name: SERVER_HOST
+          value: "0.0.0.0"
+        
+        - name: GRPC_PORT
+          value: "9090"
+        
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: user-service-config
+              key: db_host
+        
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: user-service-config
+              key: db_port
+        
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: user-service-config
+              key: db_name
+        
+        - name: DB_USER
+          valueFrom:
+            configMapKeyRef:
+              name: user-service-config
+              key: db_user
+        
+        - name: DB_SSLMODE
+          valueFrom:
+            configMapKeyRef:
+              name: user-service-config
+              key: db_sslmode
+        
+        # Sensitive credentials from Secret (will be replaced with Vault in Task 22)
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: user-service-secrets
+              key: db_password
+        
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: user-service-secrets
+              key: jwt_secret
+        
+        - name: JWT_ACCESS_TOKEN_EXPIRY
+          valueFrom:
+            configMapKeyRef:
+              name: user-service-config
+              key: jwt_access_expiry
+        
+        - name: JWT_REFRESH_TOKEN_EXPIRY
+          valueFrom:
+            configMapKeyRef:
+              name: user-service-config
+              key: jwt_refresh_expiry
+        
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: user-service-config
+              key: redis_host
+        
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: user-service-config
+              key: redis_port
+        
+        - name: REDIS_DB
+          value: "0"
+        
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: user-service-secrets
+              key: redis_password
+              optional: true  # Redis may not have password in dev
+        
+        # Audit configuration
+        - name: AUDIT_RETENTION_DAYS
+          valueFrom:
+            configMapKeyRef:
+              name: user-service-config
+              key: audit_retention_days
+        
+        - name: AUDIT_CLEANUP_INTERVAL
+          valueFrom:
+            configMapKeyRef:
+              name: user-service-config
+              key: audit_cleanup_interval
+        
+        # Resource limits: Prevent resource starvation
+        resources:
+          requests:
+            memory: "256Mi"  # Minimum guaranteed memory
+            cpu: "250m"      # Minimum guaranteed CPU (0.25 cores)
+          limits:
+            memory: "512Mi"  # Maximum memory (OOM if exceeded)
+            cpu: "500m"      # Maximum CPU (0.5 cores)
+        
+        # Liveness probe: Restart unhealthy containers
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 30  # Wait 30s for app to start
+          periodSeconds: 10        # Check every 10s
+          timeoutSeconds: 5        # Timeout after 5s
+          successThreshold: 1      # Consider healthy after 1 success
+          failureThreshold: 3      # Restart after 3 failures
+        
+        # Readiness probe: Remove from load balancer if not ready
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 5   # Start checking after 5s
+          periodSeconds: 5         # Check every 5s
+          timeoutSeconds: 3        # Timeout after 3s
+          successThreshold: 1      # Add to LB after 1 success
+          failureThreshold: 2      # Remove from LB after 2 failures
+        
+        # Startup probe: For slow-starting applications
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 0
+          periodSeconds: 10
+          timeoutSeconds: 3
+          successThreshold: 1
+          failureThreshold: 30     # Allow up to 5 minutes to start (30 * 10s)
+        
+        # Security: Read-only root filesystem
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+        
+        # Writable volumes for tmp and cache
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: cache
+          mountPath: /app/cache
+      
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: cache
+        emptyDir: {}
+      
+      # Affinity: Spread pods across different nodes for HA
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - user-service
+              topologyKey: kubernetes.io/hostname
