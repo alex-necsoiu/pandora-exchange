@@ -29,6 +29,7 @@ type Config struct {
 	JWT      JWTConfig      `mapstructure:",squash"`
 	Redis    RedisConfig    `mapstructure:",squash"`
 	Tracing  TracingConfig  `mapstructure:",squash"`
+	Audit    AuditConfig    `mapstructure:",squash"`
 }
 
 // ServerConfig holds HTTP/gRPC server configuration
@@ -73,6 +74,21 @@ type TracingConfig struct {
 	SampleRate   float64 `mapstructure:"OTEL_SAMPLE_RATE"`
 }
 
+// AuditConfig holds audit log retention and cleanup configuration
+type AuditConfig struct {
+	// RetentionDays specifies how many days to retain audit logs
+	// Different retention periods per environment:
+	// - dev: 30 days
+	// - sandbox: 90 days
+	// - audit: 2555 days (7 years for compliance)
+	// - prod: 2555 days (7 years for compliance)
+	RetentionDays int `mapstructure:"AUDIT_RETENTION_DAYS"`
+	
+	// CleanupInterval specifies how often to run the cleanup job (in hours)
+	// Default: 24 hours (daily cleanup)
+	CleanupInterval time.Duration `mapstructure:"AUDIT_CLEANUP_INTERVAL"`
+}
+
 // Load reads configuration from environment variables
 // Returns error if required variables are missing or invalid
 func Load() (*Config, error) {
@@ -93,6 +109,8 @@ func Load() (*Config, error) {
 	v.SetDefault("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
 	v.SetDefault("OTEL_SERVICE_NAME", "user-service")
 	v.SetDefault("OTEL_SAMPLE_RATE", 1.0)
+	v.SetDefault("AUDIT_RETENTION_DAYS", 90)
+	v.SetDefault("AUDIT_CLEANUP_INTERVAL", "24h")
 
 	// Bind environment variables explicitly
 	v.AutomaticEnv()
@@ -106,6 +124,7 @@ func Load() (*Config, error) {
 		"JWT_SECRET", "JWT_ACCESS_TOKEN_EXPIRY", "JWT_REFRESH_TOKEN_EXPIRY",
 		"REDIS_HOST", "REDIS_PORT", "REDIS_PASSWORD", "REDIS_DB",
 		"OTEL_ENABLED", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_SERVICE_NAME", "OTEL_SAMPLE_RATE",
+		"AUDIT_RETENTION_DAYS", "AUDIT_CLEANUP_INTERVAL",
 	}
 	for _, env := range envVars {
 		_ = v.BindEnv(env)
