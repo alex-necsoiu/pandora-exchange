@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // TestToGRPCError verifies domain error to gRPC status code mapping
@@ -77,8 +78,11 @@ func TestToGRPCError(t *testing.T) {
 			ctx := context.Background()
 			grpcErr := ToGRPCError(ctx, tt.err)
 
-			assert.Equal(t, tt.expectedCode, grpcErr.Code())
-			assert.Contains(t, grpcErr.Message(), tt.expectedMsg)
+			// Extract status from error
+			st, ok := status.FromError(grpcErr)
+			assert.True(t, ok, "Should be a gRPC status error")
+			assert.Equal(t, tt.expectedCode, st.Code())
+			assert.Contains(t, st.Message(), tt.expectedMsg)
 		})
 	}
 }
@@ -91,6 +95,8 @@ func TestToGRPCError_WithAppError(t *testing.T) {
 	
 	grpcErr := ToGRPCError(ctx, appErr)
 
-	assert.Equal(t, codes.InvalidArgument, grpcErr.Code())
-	assert.Contains(t, grpcErr.Message(), "Custom gRPC error")
+	st, ok := status.FromError(grpcErr)
+	assert.True(t, ok, "Should be a gRPC status error")
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+	assert.Contains(t, st.Message(), "Custom gRPC error")
 }
