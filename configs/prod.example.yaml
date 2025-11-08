@@ -1,0 +1,46 @@
+# Production configuration example
+# Copy to prod.yaml and customize for your environment
+# NEVER commit prod.yaml with real credentials!
+
+app_env: prod
+
+server:
+  port: "8080"
+  host: "0.0.0.0"
+  grpc_port: "9090"
+
+database:
+  # Use DATABASE_URL env var or individual fields
+  # Prefer DATABASE_URL from Vault in production
+  host: "vault://secret/db/host"
+  port: "5432"
+  user: "vault://secret/db/user"
+  password: "vault://secret/db/password"
+  name: "pandora_prod"
+  ssl_mode: "require"
+  max_connections: 25
+  max_idle_connections: 10
+
+jwt:
+  # Load from Vault in production
+  secret: "vault://secret/jwt/secret"
+  access_token_expiry: "15m"
+  refresh_token_expiry: "168h"  # 7 days
+
+redis:
+  # Use REDIS_URL env var or individual fields
+  host: "vault://secret/redis/host"
+  port: "6379"
+  password: "vault://secret/redis/password"
+  db: 0
+
+vault:
+  address: "https://vault.production.internal:8200"
+  token: ""  # Set via VAULT_TOKEN env var
+  enabled: true
+
+tracing:
+  enabled: true
+  otlp_endpoint: "otel-collector:4317"
+  service_name: "pandora-user-service"
+  sample_rate: 0.1  # 10% sampling in production

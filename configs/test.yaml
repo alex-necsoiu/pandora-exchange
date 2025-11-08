@@ -1,0 +1,41 @@
+# Test configuration for unit tests
+# This file is used by config_test.go to verify YAML loading
+
+app_env: test
+
+server:
+  port: "8081"
+  host: "localhost"
+  grpc_port: "9091"
+
+database:
+  host: "localhost"
+  port: "5432"
+  user: "test_user"
+  password: "test_password"
+  name: "test_db"
+  ssl_mode: "disable"
+  max_connections: 10
+  max_idle_connections: 5
+
+jwt:
+  secret: "test-yaml-secret-key-min-32-characters-long-for-testing"
+  access_token_expiry: "10m"
+  refresh_token_expiry: "72h"
+
+redis:
+  host: "localhost"
+  port: "6380"
+  password: ""
+  db: 1
+
+vault:
+  address: "http://localhost:8200"
+  token: "test-vault-token"
+  enabled: false
+
+tracing:
+  enabled: false
+  otlp_endpoint: "localhost:4317"
+  service_name: "test-service"
+  sample_rate: 1.0
