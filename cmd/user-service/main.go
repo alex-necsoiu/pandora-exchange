@@ -15,6 +15,7 @@ import (
 
 	"github.com/alex-necsoiu/pandora-exchange/internal/config"
 	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
+	"github.com/alex-necsoiu/pandora-exchange/internal/events"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	"github.com/alex-necsoiu/pandora-exchange/internal/repository"
 	"github.com/alex-necsoiu/pandora-exchange/internal/service"
@@ -22,6 +23,8 @@ import (
 	pb "github.com/alex-necsoiu/pandora-exchange/internal/transport/grpc/proto"
 	httpTransport "github.com/alex-necsoiu/pandora-exchange/internal/transport/http"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
 
@@ -51,6 +54,40 @@ func main() {
 
 	logger.Info("Database connection pool initialized")
 
+	// Initialize Redis client for event publishing
+	redisAddr := fmt.Sprintf("%s:%s", cfg.Redis.Host, cfg.Redis.Port)
+	redisClient := redis.NewClient(&redis.Options{
+		Addr:     redisAddr,
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
+	})
+
+	// Test Redis connection
+	if err := redisClient.Ping(ctx).Err(); err != nil {
+		logger.WithField("error", err.Error()).Warn("Failed to connect to Redis, event publishing will be disabled")
+		redisClient = nil // Disable event publishing if Redis is unavailable
+	} else {
+		logger.WithField("redis_addr", redisAddr).Info("Redis connection established")
+	}
+
+	// Initialize event publisher
+	var eventPublisher *events.RedisEventPublisher
+	if redisClient != nil {
+		// Create a zap logger for the event publisher
+		var zapLogger *zap.Logger
+		if cfg.AppEnv == "prod" {
+			zapLogger, err = zap.NewProduction()
+		} else {
+			zapLogger, err = zap.NewDevelopment()
+		}
+		if err != nil {
+			logger.WithField("error", err.Error()).Warn("Failed to create zap logger for event publisher")
+		} else {
+			eventPublisher = events.NewRedisEventPublisher(redisClient, zapLogger)
+			logger.Info("Event publisher initialized")
+		}
+	}
+
 	// Initialize JWT manager
 	jwtManager, err := auth.NewJWTManager(
 		cfg.JWT.Secret,
@@ -77,6 +114,7 @@ func main() {
 		cfg.JWT.AccessTokenExpiry,
 		cfg.JWT.RefreshTokenExpiry,
 		logger,
+		eventPublisher, // Event publisher (can be nil if Redis is unavailable)
 	)
 	if err != nil {
 		logger.WithField("error", err.Error()).Fatal("Failed to initialize user service")
@@ -217,6 +255,14 @@ func main() {
 	// Gracefully stop gRPC server
 	logger.Info("Stopping gRPC server...")
 	grpcServer.GracefulStop()
+
+	// Close event publisher and Redis connection
+	if eventPublisher != nil {
+		logger.Info("Closing event publisher...")
+		if err := eventPublisher.Close(); err != nil {
+			logger.WithField("error", err.Error()).Error("Failed to close event publisher")
+		}
+	}
 
 	logger.Info("All servers stopped gracefully")
 }

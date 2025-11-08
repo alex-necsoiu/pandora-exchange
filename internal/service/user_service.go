@@ -24,6 +24,7 @@ type UserService struct {
 	refreshTokenExpiry time.Duration
 	logger             *observability.Logger
 	auditLogger        *observability.AuditLogger
+	eventPublisher     domain.EventPublisher
 }
 
 // NewUserService creates a new UserService instance
@@ -34,6 +35,7 @@ func NewUserService(
 	accessTokenExpiry time.Duration,
 	refreshTokenExpiry time.Duration,
 	logger *observability.Logger,
+	eventPublisher domain.EventPublisher,
 ) (*UserService, error) {
 	jwtManager, err := auth.NewJWTManager(jwtSecret, accessTokenExpiry, refreshTokenExpiry)
 	if err != nil {
@@ -53,6 +55,7 @@ func NewUserService(
 		refreshTokenExpiry: refreshTokenExpiry,
 		logger:             logger,
 		auditLogger:        auditLogger,
+		eventPublisher:     eventPublisher,
 	}, nil
 }
 
@@ -93,6 +96,20 @@ func (s *UserService) Register(ctx context.Context, email, password, firstName, 
 			s.logger.WithError(err).WithField("email", email).Error("failed to create user in repository")
 		}
 		return nil, err
+	}
+
+	// Publish user registered event
+	if s.eventPublisher != nil {
+		event := domain.NewEvent(domain.EventTypeUserRegistered, user.ID, map[string]interface{}{
+			"email":      user.Email,
+			"first_name": user.FirstName,
+			"last_name":  user.LastName,
+			"role":       user.Role,
+		})
+		if err := s.eventPublisher.Publish(event); err != nil {
+			// Log error but don't fail the registration
+			s.logger.WithError(err).WithField("user_id", user.ID.String()).Warn("failed to publish user registered event")
+		}
 	}
 
 	// Log audit event for user registration
@@ -172,6 +189,18 @@ func (s *UserService) Login(ctx context.Context, email, password, ipAddress, use
 	if err != nil {
 		s.logger.WithError(err).WithField("user_id", user.ID.String()).Error("failed to store refresh token")
 		return nil, fmt.Errorf("failed to store refresh token: %w", err)
+	}
+
+	// Publish user logged in event
+	if s.eventPublisher != nil {
+		event := domain.NewEvent(domain.EventTypeUserLoggedIn, user.ID, map[string]interface{}{
+			"email":      user.Email,
+			"ip_address": ipAddress,
+			"user_agent": userAgent,
+		})
+		if err := s.eventPublisher.Publish(event); err != nil {
+			s.logger.WithError(err).WithField("user_id", user.ID.String()).Warn("failed to publish user logged in event")
+		}
 	}
 
 	// Log successful login as audit event
@@ -508,6 +537,18 @@ func (s *UserService) UpdateKYC(ctx context.Context, id uuid.UUID, status domain
 		return nil, err
 	}
 
+	// Publish KYC updated event
+	if s.eventPublisher != nil {
+		event := domain.NewEvent(domain.EventTypeUserKYCUpdated, user.ID, map[string]interface{}{
+			"email":      user.Email,
+			"kyc_status": string(status),
+			"old_status": "", // Could track old status if needed
+		})
+		if err := s.eventPublisher.Publish(event); err != nil {
+			s.logger.WithError(err).WithField("user_id", user.ID.String()).Warn("failed to publish KYC updated event")
+		}
+	}
+
 	// Log audit event for KYC status change
 	s.auditLogger.LogEvent("user.kyc_updated", map[string]interface{}{
 		"user_id":        id.String(),
@@ -542,6 +583,18 @@ func (s *UserService) UpdateProfile(ctx context.Context, id uuid.UUID, firstName
 		return nil, err
 	}
 
+	// Publish profile updated event
+	if s.eventPublisher != nil {
+		event := domain.NewEvent(domain.EventTypeUserProfileUpdated, user.ID, map[string]interface{}{
+			"email":      user.Email,
+			"first_name": firstName,
+			"last_name":  lastName,
+		})
+		if err := s.eventPublisher.Publish(event); err != nil {
+			s.logger.WithError(err).WithField("user_id", user.ID.String()).Warn("failed to publish profile updated event")
+		}
+	}
+
 	s.auditLogger.LogEvent("user.profile_updated", map[string]interface{}{
 		"user_id":    id.String(),
 		"first_name": firstName,
@@ -568,6 +621,16 @@ func (s *UserService) DeleteAccount(ctx context.Context, id uuid.UUID) error {
 	if err != nil {
 		s.logger.WithError(err).WithField("user_id", id.String()).Error("failed to soft delete user account")
 		return err
+	}
+
+	// Publish user deleted event
+	if s.eventPublisher != nil {
+		event := domain.NewEvent(domain.EventTypeUserDeleted, id, map[string]interface{}{
+			"deleted_at": time.Now().UTC(),
+		})
+		if err := s.eventPublisher.Publish(event); err != nil {
+			s.logger.WithError(err).WithField("user_id", id.String()).Warn("failed to publish user deleted event")
+		}
 	}
 
 	s.auditLogger.LogEvent("user.account_deleted", map[string]interface{}{
