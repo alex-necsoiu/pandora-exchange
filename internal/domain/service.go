@@ -43,6 +43,11 @@ type UserService interface {
 	// Returns error if user doesn't exist or is deleted.
 	GetByID(ctx context.Context, id uuid.UUID) (*User, error)
 
+	// GetByEmail retrieves a user by their email address.
+	// Returns error if user doesn't exist or is deleted.
+	// Used by gRPC service for internal service-to-service calls.
+	GetByEmail(ctx context.Context, email string) (*User, error)
+
 	// UpdateKYC updates the KYC verification status for a user.
 	// Emits a kyc.updated event to Redis Streams.
 	// Returns error if user doesn't exist or status is invalid.

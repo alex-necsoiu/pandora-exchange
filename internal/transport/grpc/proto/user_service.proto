@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package pandora.user.v1;
+
+option go_package = "github.com/alex-necsoiu/pandora-exchange/internal/transport/grpc/proto;userpb";
+
+import "google/protobuf/timestamp.proto";
+
+// UserService provides internal gRPC methods for user management
+// This is for service-to-service communication only, not external clients
+service UserService {
+  // GetUser retrieves a user by ID (internal services only)
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  
+  // GetUserByEmail retrieves a user by email (internal services only)
+  rpc GetUserByEmail(GetUserByEmailRequest) returns (GetUserResponse);
+  
+  // UpdateKYCStatus updates a user's KYC verification status
+  rpc UpdateKYCStatus(UpdateKYCRequest) returns (UpdateKYCResponse);
+  
+  // ValidateUser checks if a user exists and is active
+  rpc ValidateUser(ValidateUserRequest) returns (ValidateUserResponse);
+  
+  // ListUsers returns a paginated list of users (admin operations)
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+}
+
+// GetUserRequest requests a user by their unique ID
+message GetUserRequest {
+  string user_id = 1; // UUID string format
+}
+
+// GetUserByEmailRequest requests a user by their email address
+message GetUserByEmailRequest {
+  string email = 1;
+}
+
+// GetUserResponse returns user information
+message GetUserResponse {
+  User user = 1;
+}
+
+// UpdateKYCRequest updates KYC status for a user
+message UpdateKYCRequest {
+  string user_id = 1;       // UUID string format
+  string kyc_status = 2;    // pending, verified, rejected
+  string updated_by = 3;    // Admin user ID who updated
+}
+
+// UpdateKYCResponse confirms KYC status update
+message UpdateKYCResponse {
+  User user = 1;
+}
+
+// ValidateUserRequest checks if a user is valid and active
+message ValidateUserRequest {
+  string user_id = 1; // UUID string format
+}
+
+// ValidateUserResponse returns validation result
+message ValidateUserResponse {
+  bool is_valid = 1;
+  bool is_active = 2;
+  string kyc_status = 3;
+}
+
+// ListUsersRequest requests a paginated list of users
+message ListUsersRequest {
+  int32 limit = 1;   // Max 100
+  int32 offset = 2;  // Pagination offset
+}
+
+// ListUsersResponse returns a list of users
+message ListUsersResponse {
+  repeated User users = 1;
+  int64 total = 2;
+}
+
+// User represents a user entity (internal representation)
+message User {
+  string id = 1;
+  string email = 2;
+  string first_name = 3;
+  string last_name = 4;
+  string kyc_status = 5;
+  string role = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+  google.protobuf.Timestamp deleted_at = 9; // Optional, for soft-deleted users
+}

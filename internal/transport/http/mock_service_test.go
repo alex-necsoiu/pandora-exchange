@@ -70,6 +70,15 @@ func (m *MockUserService) GetByID(ctx context.Context, id uuid.UUID) (*domain.Us
 	return args.Get(0).(*domain.User), args.Error(1)
 }
 
+// GetByEmail mocks the GetByEmail method
+func (m *MockUserService) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+	args := m.Called(ctx, email)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.User), args.Error(1)
+}
+
 // UpdateKYC mocks the UpdateKYC method
 func (m *MockUserService) UpdateKYC(ctx context.Context, userID uuid.UUID, status domain.KYCStatus) (*domain.User, error) {
 	args := m.Called(ctx, userID, status)

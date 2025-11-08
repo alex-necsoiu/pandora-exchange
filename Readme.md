@@ -75,7 +75,7 @@ user-service/
 | 10 | Logging with Zerolog | ✅ Completed | - | Structured logging, 9 test suites, audit logs, sensitive data redaction | 2024-01-XX |
 | 11 | OpenTelemetry Tracing Setup | ✅ Completed | - | OTLP exporter, Gin middleware, 9 test suites, Jaeger integration | 2024-11-08 |
 | 12 | Gin HTTP Transport Layer | ✅ Completed | 76db8a0 | 11 handlers, 91.7% coverage, 483 tests passing | 2024-11-08 |
-| 13 | gRPC Service Definition & Implementation | ⚪ Not Started | - | - | - |
+| 13 | gRPC Service Definition & Implementation | ✅ Completed | - | 5 RPCs, interceptors, 59.6% coverage, 5 test suites | 2024-11-08 |
 | 14 | Redis Streams Event Publisher | ⚪ Not Started | - | - | - |
 | 15 | Middleware - Auth & Security | ✅ Completed | 76db8a0 | Auth, CORS, Recovery, Admin middleware, 100% coverage | 2024-11-08 |
 | 16 | Health Check Endpoints | ✅ Completed | 76db8a0 | `/health` endpoint implemented and tested | 2024-11-08 |
@@ -167,14 +167,34 @@ make clean         # Clean build artifacts
 | GET | `/health` | Health check | No |
 | GET | `/ready` | Readiness check | No |
 
-### gRPC (Internal)
+### gRPC (Internal Service-to-Service)
+
+**Port:** 9090 (configurable via `GRPC_PORT`)
 
 ```protobuf
 service UserService {
-  rpc GetUser(GetUserRequest) returns (UserResponse);
-  rpc UpdateKYC(UpdateKYCRequest) returns (UserResponse);
+  // User retrieval
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc GetUserByEmail(GetUserByEmailRequest) returns (GetUserResponse);
+  
+  // KYC management
+  rpc UpdateKYCStatus(UpdateKYCRequest) returns (UpdateKYCResponse);
+  
+  // User validation
+  rpc ValidateUser(ValidateUserRequest) returns (ValidateUserResponse);
+  
+  // Admin operations
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
 }
 ```
+
+**Interceptors:**
+- Recovery: Panic recovery with error logging
+- Logging: Request/response logging with duration
+- Tracing: OpenTelemetry span creation
+- Auth: JWT validation (planned)
+
+**Testing:** 5 test suites with table-driven tests, 59.6% coverage
 
 ---
 

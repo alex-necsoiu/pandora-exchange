@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,8 +18,11 @@ import (
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	"github.com/alex-necsoiu/pandora-exchange/internal/repository"
 	"github.com/alex-necsoiu/pandora-exchange/internal/service"
+	grpcTransport "github.com/alex-necsoiu/pandora-exchange/internal/transport/grpc"
+	pb "github.com/alex-necsoiu/pandora-exchange/internal/transport/grpc/proto"
 	httpTransport "github.com/alex-necsoiu/pandora-exchange/internal/transport/http"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -120,9 +124,25 @@ func main() {
 
 	logger.Info("HTTP routers initialized")
 
+	// Initialize gRPC server with interceptors
+	grpcServer := grpc.NewServer(
+		grpc.ChainUnaryInterceptor(
+			grpcTransport.UnaryRecoveryInterceptor(logger),
+			grpcTransport.UnaryLoggingInterceptor(logger),
+			grpcTransport.UnaryTracingInterceptor(),
+		),
+	)
+
+	// Register gRPC service
+	userGRPCService := grpcTransport.NewServer(userService, logger)
+	pb.RegisterUserServiceServer(grpcServer, userGRPCService)
+
+	logger.Info("gRPC server initialized")
+
 	// Create HTTP servers: user-facing and admin-facing (separate ports)
 	userAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
 	adminAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.AdminPort)
+	grpcAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.GRPCPort)
 
 	userServer := &http.Server{
 		Addr:         userAddr,
@@ -139,6 +159,19 @@ func main() {
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
+
+	// Start gRPC server
+	go func() {
+		listener, err := net.Listen("tcp", grpcAddr)
+		if err != nil {
+			logger.WithField("error", err.Error()).Fatal("Failed to create gRPC listener")
+		}
+
+		logger.WithField("address", grpcAddr).Info("Starting gRPC server")
+		if err := grpcServer.Serve(listener); err != nil {
+			logger.WithField("error", err.Error()).Fatal("gRPC server failed")
+		}
+	}()
 
 	// Start user server
 	go func() {
@@ -159,6 +192,7 @@ func main() {
 	logger.WithFields(map[string]interface{}{
 		"user_address":  userAddr,
 		"admin_address": adminAddr,
+		"grpc_address":  grpcAddr,
 	}).Info("User Service started successfully")
 
 	// Wait for interrupt signal to gracefully shutdown the server
@@ -168,10 +202,11 @@ func main() {
 
 	logger.Info("Shutting down server...")
 
-	// Graceful shutdown with timeout for both servers
+	// Graceful shutdown with timeout for all servers
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Shutdown HTTP servers
 	if err := userServer.Shutdown(ctx); err != nil {
 		logger.WithField("error", err.Error()).Error("User server forced to shutdown")
 	}
@@ -179,7 +214,11 @@ func main() {
 		logger.WithField("error", err.Error()).Error("Admin server forced to shutdown")
 	}
 
-	logger.Info("Server stopped gracefully")
+	// Gracefully stop gRPC server
+	logger.Info("Stopping gRPC server...")
+	grpcServer.GracefulStop()
+
+	logger.Info("All servers stopped gracefully")
 }
 
 // initDatabase initializes the PostgreSQL connection pool.

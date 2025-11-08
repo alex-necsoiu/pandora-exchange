@@ -474,6 +474,24 @@ func (s *UserService) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, 
 	return user, nil
 }
 
+// GetByEmail retrieves a user by their email address
+func (s *UserService) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+	s.logger.WithField("email", email).Debug("retrieving user by email")
+	
+	user, err := s.userRepo.GetByEmail(ctx, email)
+	if err != nil {
+		if errors.Is(err, domain.ErrUserNotFound) {
+			s.logger.WithField("email", email).Warn("user not found")
+		} else {
+			s.logger.WithError(err).WithField("email", email).Error("failed to get user by email")
+		}
+		return nil, err
+	}
+
+	s.logger.WithField("email", email).Debug("user retrieved successfully")
+	return user, nil
+}
+
 // UpdateKYC updates a user's KYC status
 func (s *UserService) UpdateKYC(ctx context.Context, id uuid.UUID, status domain.KYCStatus) (*domain.User, error) {
 	s.logger.WithFields(map[string]interface{}{
