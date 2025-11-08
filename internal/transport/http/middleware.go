@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // AuthMiddleware provides JWT authentication for protected routes.
@@ -408,5 +410,68 @@ func stringPtr(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// ErrorMiddleware handles domain errors and converts them to HTTP responses.
+// It attaches OpenTelemetry trace IDs to error responses for request correlation.
+//
+// Returns:
+//   - gin.HandlerFunc: Middleware function for error handling
+//
+// Security: Internal errors are sanitized to prevent information leakage.
+func ErrorMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Process the request
+		c.Next()
+
+		// Check if there are any errors
+		if len(c.Errors) == 0 {
+			return
+		}
+
+		// Get the first error (Gin accumulates all errors)
+		firstErr := c.Errors[0].Err
+
+		// Extract trace ID from context
+		traceID := extractTraceID(c.Request.Context())
+
+		// Convert to AppError
+		var appErr *domain.AppError
+		if errors, ok := firstErr.(*domain.AppError); ok {
+			// Already an AppError, use it directly
+			appErr = errors
+			// Update trace ID if not set
+			if appErr.TraceID == "" {
+				appErr.TraceID = traceID
+			}
+		} else {
+			// Convert domain error to AppError
+			appErr = domain.NewAppError(firstErr, firstErr.Error(), traceID)
+		}
+
+		// Respond with error JSON
+		c.JSON(appErr.HTTPStatus, appErr.ToJSON())
+	}
+}
+
+// extractTraceID extracts the OpenTelemetry trace ID from the context.
+//
+// Parameters:
+//   - ctx: Request context containing trace information
+//
+// Returns:
+//   - string: Trace ID in hexadecimal format, or empty string if not found
+func extractTraceID(ctx context.Context) string {
+	span := trace.SpanFromContext(ctx)
+	if span == nil {
+		return ""
+	}
+
+	spanCtx := span.SpanContext()
+	if !spanCtx.IsValid() {
+		return ""
+	}
+
+	return spanCtx.TraceID().String()
 }
 
