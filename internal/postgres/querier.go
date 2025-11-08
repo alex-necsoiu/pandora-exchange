@@ -8,26 +8,36 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
 	// CountAllActiveSessions returns the total count of active sessions across all users (admin only).
 	CountAllActiveSessions(ctx context.Context) (int64, error)
+	CountAuditLogsByCategory(ctx context.Context, eventCategory string) (int64, error)
+	CountAuditLogsByEventType(ctx context.Context, eventType string) (int64, error)
+	CountAuditLogsByUser(ctx context.Context, userID pgtype.UUID) (int64, error)
+	CountSearchAuditLogs(ctx context.Context, arg CountSearchAuditLogsParams) (int64, error)
 	// CountUserActiveTokens returns the number of active sessions for a user.
 	CountUserActiveTokens(ctx context.Context, userID uuid.UUID) (int64, error)
 	// CountUsers returns the total count of active users.
 	CountUsers(ctx context.Context) (int64, error)
+	CreateAuditLog(ctx context.Context, arg CreateAuditLogParams) (AuditLog, error)
 	// CreateRefreshToken stores a new refresh token for a user.
 	// Includes audit information (IP address and user agent).
 	CreateRefreshToken(ctx context.Context, arg CreateRefreshTokenParams) (RefreshToken, error)
 	// CreateUser creates a new user with the provided email, first name, last name, and hashed password.
 	// Returns the created user record.
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	DeleteExpiredAuditLogs(ctx context.Context) error
 	// DeleteExpiredTokens removes expired refresh tokens from the database.
 	// Should be run periodically as a cleanup job.
 	DeleteExpiredTokens(ctx context.Context) error
 	// GetAllActiveSessions retrieves all active sessions across all users (admin only).
 	GetAllActiveSessions(ctx context.Context, arg GetAllActiveSessionsParams) ([]GetAllActiveSessionsRow, error)
+	GetAuditLogByID(ctx context.Context, id uuid.UUID) (AuditLog, error)
+	GetFailedLoginAttempts(ctx context.Context, userID pgtype.UUID) ([]AuditLog, error)
+	GetRecentSecurityEvents(ctx context.Context) ([]AuditLog, error)
 	// GetRefreshToken retrieves a refresh token by its value.
 	// Returns the token regardless of revoked status (caller should check IsRevoked).
 	GetRefreshToken(ctx context.Context, token string) (RefreshToken, error)
@@ -42,6 +52,13 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	// GetUserByIDIncludeDeleted retrieves a user by ID including soft-deleted users (admin only).
 	GetUserByIDIncludeDeleted(ctx context.Context, id uuid.UUID) (User, error)
+	ListAuditLogsByCategory(ctx context.Context, arg ListAuditLogsByCategoryParams) ([]AuditLog, error)
+	ListAuditLogsByDateRange(ctx context.Context, arg ListAuditLogsByDateRangeParams) ([]AuditLog, error)
+	ListAuditLogsByEventType(ctx context.Context, arg ListAuditLogsByEventTypeParams) ([]AuditLog, error)
+	ListAuditLogsByIPAddress(ctx context.Context, arg ListAuditLogsByIPAddressParams) ([]AuditLog, error)
+	ListAuditLogsByResource(ctx context.Context, arg ListAuditLogsByResourceParams) ([]AuditLog, error)
+	ListAuditLogsBySeverity(ctx context.Context, arg ListAuditLogsBySeverityParams) ([]AuditLog, error)
+	ListAuditLogsByUser(ctx context.Context, arg ListAuditLogsByUserParams) ([]AuditLog, error)
 	// ListUsers retrieves paginated list of active users.
 	// Supports filtering and pagination.
 	ListUsers(ctx context.Context, arg ListUsersParams) ([]User, error)
@@ -53,6 +70,7 @@ type Querier interface {
 	RevokeRefreshToken(ctx context.Context, token string) (int64, error)
 	// RevokeTokenByID revokes a specific refresh token by token value (admin only).
 	RevokeTokenByID(ctx context.Context, token string) (int64, error)
+	SearchAuditLogs(ctx context.Context, arg SearchAuditLogsParams) ([]AuditLog, error)
 	// SearchUsers searches users by email, first name, or last name.
 	SearchUsers(ctx context.Context, arg SearchUsersParams) ([]User, error)
 	// SoftDeleteUser marks a user as deleted without removing the record.

@@ -5,9 +5,42 @@
 package postgres
 
 import (
+	"net/netip"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+// Immutable audit trail for security, compliance, and forensic analysis
+type AuditLog struct {
+	ID uuid.UUID `json:"id"`
+	// Specific event identifier (e.g., user.login, kyc.approved)
+	EventType string `json:"event_type"`
+	// High-level categorization for filtering and reporting
+	EventCategory string `json:"event_category"`
+	// Event severity for alerting and monitoring
+	Severity        string      `json:"severity"`
+	UserID          pgtype.UUID `json:"user_id"`
+	ActorType       string      `json:"actor_type"`
+	ActorIdentifier *string     `json:"actor_identifier"`
+	Action          string      `json:"action"`
+	ResourceType    *string     `json:"resource_type"`
+	ResourceID      *string     `json:"resource_id"`
+	IpAddress       *netip.Addr `json:"ip_address"`
+	UserAgent       *string     `json:"user_agent"`
+	RequestID       *string     `json:"request_id"`
+	SessionID       *string     `json:"session_id"`
+	// Flexible JSONB field for event-specific structured data
+	Metadata      []byte  `json:"metadata"`
+	PreviousState []byte  `json:"previous_state"`
+	NewState      []byte  `json:"new_state"`
+	Status        string  `json:"status"`
+	FailureReason *string `json:"failure_reason"`
+	// Auto-deletion timestamp for compliance with data retention policies
+	RetentionUntil pgtype.Timestamptz `json:"retention_until"`
+	IsSensitive    *bool              `json:"is_sensitive"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
 
 // Stores JWT refresh tokens for user authentication
 type RefreshToken struct {
