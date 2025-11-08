@@ -84,7 +84,7 @@ user-service/
 | 19 | Integration Tests | ✅ Completed | 9ac7c81 | 4 E2E test suites, real DB, full workflows | 2024-11-08 |
 | 20 | CI/CD Pipeline - GitHub Actions | ⚪ Not Started | - | - | - |
 | 21 | Kubernetes Manifests | ✅ Completed | - | 18 manifests, Kustomize overlays, complete deployment guide | 2024-11-08 |
-| 22 | Vault Integration | ✅ Completed | - | Vault client (251 lines), secret loading with ENV fallback, K8s Vault Agent integration, comprehensive docs | 2024-11-08 |
+| 22 | Vault Integration | ✅ Completed | 486fcbe, 4d1dafc | Vault client (251 lines), K8s integration, comprehensive integration tests (310 lines), testing guide | 2024-11-08 |
 | 23 | Enhanced Audit Logging | ✅ Completed | bcc0612, ee13c3c | Audit logs table, repository (16 tests), cleanup job (9 tests), middleware (15 tests) | 2024-11-08 |
 | 15 | Error Handling System | ✅ Completed | 6ce3c76, dee6c4c | AppError struct, HTTP/gRPC middleware, 35 tests, comprehensive docs | 2024-11-08 |
 | 24 | Documentation & README | 🔵 In Progress | - | K8s deployment guide complete, main README updates pending | 2024-11-08 |
@@ -256,7 +256,7 @@ Set environment: `export APP_ENV=dev`
 ## 🧪 Testing Strategy
 
 - **Unit Tests:** All domain logic with table-driven tests
-- **Integration Tests:** Full service tests with testcontainers
+- **Integration Tests:** Full service tests with real Vault dev server
 - **TDD Approach:** Tests written BEFORE implementation
 - **Coverage Target:** >80% code coverage
 - **Mock Generation:** Using mockgen for interfaces
@@ -271,7 +271,15 @@ go tool cover -html=coverage.out
 
 # Run integration tests
 go test ./tests/integration/... -v
+
+# Run Vault integration tests (requires vault binary)
+VAULT_INTEGRATION_TESTS=true go test ./internal/vault/... -v
 ```
+
+**Vault Testing:**
+- Unit tests: PASS (3 tests, 4.6s) - run by default
+- Integration tests: 6 suites, 15+ scenarios - opt-in with `VAULT_INTEGRATION_TESTS=true`
+- See [internal/vault/TESTING.md](internal/vault/TESTING.md) for detailed guide
 
 ---
 
@@ -321,10 +329,15 @@ CREATE TABLE refresh_tokens (
 ## 📚 References
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) - Complete architecture specification
+- [VAULT_INTEGRATION.md](./VAULT_INTEGRATION.md) - HashiCorp Vault setup and usage guide
+- [internal/vault/TESTING.md](./internal/vault/TESTING.md) - Vault integration testing guide
+- [ERROR_HANDLING.md](./ERROR_HANDLING.md) - Error handling patterns and middleware
+- [AUDIT_RETENTION_POLICY.md](./AUDIT_RETENTION_POLICY.md) - Audit log retention and cleanup
 - [Go 1.21 Documentation](https://go.dev/doc/)
 - [sqlc Documentation](https://docs.sqlc.dev/)
 - [Gin Framework](https://gin-gonic.com/docs/)
 - [OpenTelemetry Go](https://opentelemetry.io/docs/instrumentation/go/)
+- [HashiCorp Vault](https://www.vaultproject.io/docs)
 
 ---
 
