@@ -1,0 +1,12 @@
+# Namespace for Pandora Exchange resources
+# Provides logical isolation for all User Service components
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pandora
+  labels:
+    name: pandora
+    app: pandora-exchange
+    managed-by: kubectl
+  annotations:
+    description: "Pandora Exchange - Digital Asset Trading Platform"

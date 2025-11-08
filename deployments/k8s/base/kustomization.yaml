@@ -1,0 +1,28 @@
+# Kustomization for base manifests
+# This file defines the base resources that all environments inherit
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: pandora
+
+resources:
+- namespace.yaml
+- user-service-deployment.yaml
+- user-service-service.yaml
+- user-service-configmap.yaml
+- user-service-secret.yaml
+- user-service-hpa.yaml
+- postgres-statefulset.yaml
+- redis-deployment.yaml
+- network-policy.yaml
+- ingress.yaml
+
+# Common labels applied to all resources
+commonLabels:
+  app.kubernetes.io/part-of: pandora-exchange
+  app.kubernetes.io/managed-by: kustomize
+
+# Common annotations
+commonAnnotations:
+  documentation: "https://github.com/alex-necsoiu/pandora-exchange"
+  contact: "ops@pandora.exchange"

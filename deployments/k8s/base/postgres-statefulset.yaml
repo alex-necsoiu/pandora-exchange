@@ -1,0 +1,123 @@
+# PostgreSQL StatefulSet
+# Provides persistent database storage for User Service
+# Note: For production, consider managed databases (AWS RDS, GCP Cloud SQL)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: pandora
+  labels:
+    app: postgres
+    component: database
+spec:
+  serviceName: postgres
+  replicas: 1  # Single instance for dev/staging, use managed DB for prod
+  selector:
+    matchLabels:
+      app: postgres
+  
+  template:
+    metadata:
+      labels:
+        app: postgres
+        component: database
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+          name: postgres
+          protocol: TCP
+        
+        env:
+        - name: POSTGRES_DB
+          value: "pandora_dev"
+        - name: POSTGRES_USER
+          value: "pandora"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secrets
+              key: postgres_password
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        
+        # Health checks
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - pandora
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - pandora
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+  
+  # Persistent volume claim template
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: standard  # Use appropriate storage class
+      resources:
+        requests:
+          storage: 20Gi  # Adjust based on expected data volume
+
+---
+# PostgreSQL Service
+# Internal ClusterIP service for database access
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: pandora
+  labels:
+    app: postgres
+spec:
+  type: ClusterIP
+  selector:
+    app: postgres
+  ports:
+  - name: postgres
+    port: 5432
+    targetPort: 5432
+    protocol: TCP
+  clusterIP: None  # Headless service for StatefulSet
+
+---
+# PostgreSQL Secrets
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secrets
+  namespace: pandora
+type: Opaque
+data:
+  # Value: pandora_dev_secret
+  postgres_password: cGFuZG9yYV9kZXZfc2VjcmV0

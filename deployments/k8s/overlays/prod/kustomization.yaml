@@ -1,0 +1,38 @@
+# Kustomization for Production environment
+# Full production configuration with security hardening
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: pandora
+
+# Inherit base manifests
+bases:
+- ../../base
+
+# Production suffix
+nameSuffix: -prod
+
+# Override ConfigMap for production
+configMapGenerator:
+- name: user-service-config
+  behavior: merge
+  literals:
+  - app_env=prod
+  - db_name=pandora_prod
+  - db_sslmode=require
+  - audit_retention_days=2555  # 7 years for compliance
+  - audit_cleanup_interval=24h
+
+# Production-specific patches
+patchesStrategicMerge:
+- deployment-patch.yaml
+
+# Labels for production
+commonLabels:
+  environment: production
+  app.kubernetes.io/version: v1.0.0
+
+# Use specific image tags (never use 'latest' in prod)
+images:
+- name: pandora/user-service
+  newTag: v1.0.0  # Replace with actual version from CI/CD

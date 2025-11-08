@@ -1,0 +1,24 @@
+# Production deployment patches
+# Increased resources and stricter security
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+spec:
+  replicas: 5  # Start with 5 replicas for HA
+  template:
+    spec:
+      containers:
+      - name: user-service
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        
+        # Production environment variables
+        env:
+        - name: APP_ENV
+          value: "prod"

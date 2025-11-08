@@ -1,0 +1,38 @@
+# Kustomization for Development environment
+# Overrides base configuration for local/dev deployment
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: pandora
+
+# Inherit base manifests
+bases:
+- ../../base
+
+# Environment-specific suffix
+nameSuffix: -dev
+
+# Override ConfigMap values for dev
+configMapGenerator:
+- name: user-service-config
+  behavior: merge
+  literals:
+  - app_env=dev
+  - db_name=pandora_dev
+  - db_sslmode=disable
+  - audit_retention_days=30
+  - audit_cleanup_interval=24h
+
+# Dev-specific patches
+patchesStrategicMerge:
+- deployment-patch.yaml
+- hpa-patch.yaml
+
+# Labels for dev environment
+commonLabels:
+  environment: development
+  app.kubernetes.io/version: dev
+
+images:
+- name: pandora/user-service
+  newTag: dev-latest

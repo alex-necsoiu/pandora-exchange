@@ -1,0 +1,45 @@
+# User Service ConfigMap
+# Non-sensitive configuration for User Service
+# Environment-specific values are overridden by Kustomize overlays
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user-service-config
+  namespace: pandora
+  labels:
+    app: user-service
+data:
+  # Application environment
+  app_env: "dev"
+  
+  # Database configuration
+  db_host: "postgres.pandora.svc.cluster.local"
+  db_port: "5432"
+  db_name: "pandora_dev"
+  db_user: "pandora"
+  db_sslmode: "disable"  # Use "require" in production
+  
+  # Redis configuration
+  redis_host: "redis.pandora.svc.cluster.local"
+  redis_port: "6379"
+  
+  # JWT token expiry
+  jwt_access_expiry: "15m"
+  jwt_refresh_expiry: "168h"  # 7 days
+  
+  # Audit logging configuration
+  audit_retention_days: "90"  # Dev: 90 days, Prod: 2555 days (7 years)
+  audit_cleanup_interval: "24h"
+  
+  # OpenTelemetry configuration
+  otel_endpoint: "http://otel-collector.observability.svc.cluster.local:4317"
+  otel_service_name: "user-service"
+  
+  # Server configuration
+  server_read_timeout: "10s"
+  server_write_timeout: "10s"
+  server_idle_timeout: "30s"
+  
+  # Rate limiting (future)
+  rate_limit_requests: "100"
+  rate_limit_window: "1m"
