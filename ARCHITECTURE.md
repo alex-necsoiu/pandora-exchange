@@ -271,7 +271,35 @@ AI MUST NOT:
 - Expose sqlc structs to API
 - Skip tests or comments
 
----
+## 15 Error Handling
+
+You must now implement the Pandora Exchange error-handling system.
+
+Follow the Pandora error strategy:
+
+- Use sentinel domain errors (ErrUserExists, ErrInvalidInput, etc.)
+- Create AppError struct with Code, Message, TraceID, HTTPStatus
+- Provide NewAppError constructor
+- Create Gin middleware to map domain errors → HTTP responses
+- Create gRPC interceptor to map domain errors → status codes
+- Attach OTEL trace IDs to all error responses
+- Use Zerolog for logging errors (no sensitive data)
+- Do NOT expose internal errors to clients
+- Use table-driven tests for error mapping
+- File paths MUST follow our architecture layout
+- Add GoDoc comments on all functions
+- Tests FIRST, then implementation
+
+Output patch plan with:
+
+- Branch name
+- Commit messages
+- File map (full paths)
+- Tests first, failing
+- Code after tests
+- Commands to run tests
+- Expected outputs
+
 
 ## ✅ Final Rule
 
