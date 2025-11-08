@@ -65,6 +65,7 @@ func setupIntegrationTest(t *testing.T) (*httptest.Server, *httptest.Server, *se
 		15*time.Minute,
 		7*24*time.Hour,
 		logger,
+		nil, // No event publisher in integration tests
 	)
 	require.NoError(t, err)
 
