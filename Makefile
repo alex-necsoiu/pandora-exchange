@@ -1,7 +1,7 @@
 # Pandora Exchange - User Service Makefile
 # Architecture-compliant build automation
 
-.PHONY: help dev dev-up dev-down migrate migrate-down migrate-force migrate-version migrate-create sqlc test test-coverage lint build run docker-build clean proto install-tools
+.PHONY: help dev dev-up dev-down migrate migrate-down migrate-force migrate-version migrate-create sqlc test test-unit test-integration test-bench test-coverage imports-check security-scan docs lint build run docker-build clean proto install-tools deps tidy fmt vet check ci
 
 # Variables
 SERVICE_NAME := user-service
@@ -10,6 +10,8 @@ MIGRATIONS_DIR := migrations
 POSTGRES_URL := postgresql://pandora:pandora_dev_secret@localhost:5432/pandora_dev?sslmode=disable
 GO_TEST_FLAGS := -v -race -timeout=30s
 COVERAGE_OUT := coverage.out
+BENCH_FLAGS := -bench=. -benchmem -benchtime=5s
+DOCS_OUT := docs/generated
 
 ## help: Display this help message
 help:
@@ -26,8 +28,18 @@ help:
 	@echo "  make sqlc            - Generate sqlc code from SQL queries"
 	@echo "  make proto           - Generate gRPC code from protobuf"
 	@echo "  make test            - Run all tests"
+	@echo "  make test-unit       - Run unit tests only (exclude integration)"
+	@echo "  make test-integration- Run integration tests only"
+	@echo "  make test-bench      - Run benchmarks"
 	@echo "  make test-coverage   - Run tests with coverage report"
+	@echo "  make imports-check   - Check import boundaries (architecture enforcement)"
+	@echo "  make security-scan   - Run security vulnerability scan (gosec)"
+	@echo "  make docs            - Generate Go documentation"
 	@echo "  make lint            - Run golangci-lint"
+	@echo "  make fmt             - Format Go code"
+	@echo "  make vet             - Run go vet"
+	@echo "  make check           - Run all checks (fmt, vet, lint, imports-check, test)"
+	@echo "  make ci              - Run all CI checks (deps, fmt, vet, lint, imports, security, test)"
 	@echo "  make build           - Build service binary"
 	@echo "  make run             - Run service locally"
 	@echo "  make dev             - Start dev environment, migrate, build and run service"
@@ -44,6 +56,7 @@ install-tools:
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	go install go.uber.org/mock/mockgen@latest
+	go install github.com/securego/gosec/v2/cmd/gosec@v2.21.4
 	@echo "✅ Tools installed successfully"
 
 ## dev-up: Start development environment (PostgreSQL + Redis)
@@ -121,6 +134,24 @@ test:
 	go test $(GO_TEST_FLAGS) ./...
 	@echo "✅ All tests passed"
 
+## test-unit: Run unit tests only (exclude integration tests)
+test-unit:
+	@echo "Running unit tests..."
+	go test $(GO_TEST_FLAGS) ./... -short
+	@echo "✅ Unit tests passed"
+
+## test-integration: Run integration tests only
+test-integration:
+	@echo "Running integration tests..."
+	go test $(GO_TEST_FLAGS) ./tests/integration/... -run Integration
+	@echo "✅ Integration tests passed"
+
+## test-bench: Run benchmarks
+test-bench:
+	@echo "Running benchmarks..."
+	go test $(BENCH_FLAGS) ./...
+	@echo "✅ Benchmarks completed"
+
 ## test-coverage: Run tests with coverage report
 test-coverage:
 	@echo "Running tests with coverage..."
@@ -129,6 +160,39 @@ test-coverage:
 	go tool cover -html=$(COVERAGE_OUT) -o coverage.html
 	@echo "✅ Coverage report generated: coverage.html"
 	@go tool cover -func=$(COVERAGE_OUT) | grep total
+
+## imports-check: Verify import boundaries (clean architecture enforcement)
+imports-check:
+	@echo "Checking import boundaries..."
+	@go test ./internal/ci_checks/... -v -run TestDomainLayerImportBoundaries
+	@go test ./internal/ci_checks/... -v -run TestRepositoryLayerImportBoundaries
+	@go test ./internal/ci_checks/... -v -run TestServiceLayerImportBoundaries
+	@echo "✅ Import boundaries verified"
+
+## security-scan: Run security vulnerability scan
+security-scan:
+	@echo "Running security scan with gosec..."
+	@command -v gosec >/dev/null 2>&1 || { \
+		echo "gosec not installed. Installing..."; \
+		go install github.com/securego/gosec/v2/cmd/gosec@v2.21.4; \
+	}
+	gosec -fmt=text -exclude=G104,G101,G103 -exclude-generated ./... || true
+	@echo "✅ Security scan completed (warnings above are informational)"
+
+## docs: Generate Go documentation
+docs:
+	@echo "Generating documentation..."
+	@mkdir -p $(DOCS_OUT)
+	@echo "Generating package documentation..."
+	@go doc -all ./internal/domain > $(DOCS_OUT)/domain.txt
+	@go doc -all ./internal/service > $(DOCS_OUT)/service.txt
+	@go doc -all ./internal/repository > $(DOCS_OUT)/repository.txt
+	@go doc -all ./internal/config > $(DOCS_OUT)/config.txt
+	@echo "✅ Documentation generated in $(DOCS_OUT)/"
+	@echo ""
+	@echo "To view documentation in browser, run:"
+	@echo "  godoc -http=:6060"
+	@echo "  open http://localhost:6060/pkg/github.com/alex-necsoiu/pandora-exchange/"
 
 ## lint: Run golangci-lint
 lint:
@@ -212,9 +276,13 @@ vet:
 	go vet ./...
 	@echo "✅ go vet completed"
 
-## check: Run all checks (fmt, vet, lint, test)
-check: fmt vet lint test
+## check: Run all checks (fmt, vet, lint, imports-check, test)
+check: fmt vet lint imports-check test
 	@echo "✅ All checks passed"
+
+## ci: Run all CI checks (what runs in CI/CD pipeline)
+ci: deps fmt vet lint imports-check security-scan test
+	@echo "✅ All CI checks passed"
 
 # Default target
 .DEFAULT_GOAL := help
