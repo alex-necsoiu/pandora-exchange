@@ -22,6 +22,7 @@ import (
 	grpcTransport "github.com/alex-necsoiu/pandora-exchange/internal/transport/grpc"
 	pb "github.com/alex-necsoiu/pandora-exchange/internal/transport/grpc/proto"
 	httpTransport "github.com/alex-necsoiu/pandora-exchange/internal/transport/http"
+	"github.com/alex-necsoiu/pandora-exchange/internal/vault"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -44,8 +45,44 @@ func main() {
 		"grpc_port":   cfg.Server.GRPCPort,
 	}).Info("Configuration loaded")
 
-	// Initialize database connection pool
+	// Initialize Vault client for secret management
 	ctx := context.Background()
+	var vaultClient *vault.Client
+	
+	if cfg.Vault.Enabled {
+		logger.WithFields(map[string]interface{}{
+			"vault_addr": cfg.Vault.Addr,
+			"secret_path": cfg.Vault.SecretPath,
+		}).Info("Initializing Vault client")
+		
+		vaultClient, err = vault.NewClient(cfg.Vault.Addr, cfg.Vault.Token)
+		if err != nil {
+			logger.WithField("error", err.Error()).Fatal("Failed to initialize Vault client")
+		}
+		
+		// Check Vault availability
+		if !vaultClient.IsAvailable(ctx) {
+			logger.Warn("Vault is configured but not available, falling back to environment variables")
+		} else {
+			logger.Info("Vault client initialized successfully")
+		}
+	} else {
+		logger.Info("Vault integration disabled, using environment variables for secrets")
+		vaultClient = vault.NewDisabledClient()
+	}
+
+	// Load secrets from Vault (or fall back to ENV if Vault disabled/unavailable)
+	if err := cfg.LoadSecretsFromVault(ctx, vaultClient); err != nil {
+		logger.WithField("error", err.Error()).Fatal("Failed to load secrets from Vault")
+	}
+	
+	if cfg.Vault.Enabled && vaultClient.IsAvailable(ctx) {
+		logger.Info("Secrets loaded from Vault successfully")
+	} else {
+		logger.Info("Using environment variable secrets (dev mode)")
+	}
+
+	// Initialize database connection pool
 	dbPool, err := initDatabase(ctx, cfg, logger)
 	if err != nil {
 		logger.WithField("error", err.Error()).Fatal("Failed to initialize database")

@@ -36,6 +36,34 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8080"
         prometheus.io/path: "/metrics"
+        
+        # Vault Agent Injector annotations
+        # See: https://www.vaultproject.io/docs/platform/k8s/injector
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/agent-inject-status: "update"
+        vault.hashicorp.com/role: "pandora-user-service"
+        vault.hashicorp.com/agent-pre-populate-only: "true"
+        
+        # JWT Secret injection
+        vault.hashicorp.com/agent-inject-secret-jwt: "secret/data/pandora/user-service/jwt"
+        vault.hashicorp.com/agent-inject-template-jwt: |
+          {{- with secret "secret/data/pandora/user-service/jwt" -}}
+          export JWT_SECRET="{{ .Data.data.secret }}"
+          {{- end -}}
+        
+        # Database password injection
+        vault.hashicorp.com/agent-inject-secret-database: "secret/data/pandora/user-service/database"
+        vault.hashicorp.com/agent-inject-template-database: |
+          {{- with secret "secret/data/pandora/user-service/database" -}}
+          export DB_PASSWORD="{{ .Data.data.password }}"
+          {{- end -}}
+        
+        # Redis password injection
+        vault.hashicorp.com/agent-inject-secret-redis: "secret/data/pandora/user-service/redis"
+        vault.hashicorp.com/agent-inject-template-redis: |
+          {{- with secret "secret/data/pandora/user-service/redis" -}}
+          export REDIS_PASSWORD="{{ .Data.data.password }}"
+          {{- end -}}
     
     spec:
       # Security: Run as non-root user

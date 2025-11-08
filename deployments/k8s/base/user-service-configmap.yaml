@@ -31,6 +31,11 @@ data:
   audit_retention_days: "90"  # Dev: 90 days, Prod: 2555 days (7 years)
   audit_cleanup_interval: "24h"
   
+  # Vault configuration (disabled in dev, enabled in prod)
+  vault_enabled: "false"
+  vault_addr: "http://vault.default.svc.cluster.local:8200"
+  vault_secret_path: "secret/data/pandora/user-service"
+  
   # OpenTelemetry configuration
   otel_endpoint: "http://otel-collector.observability.svc.cluster.local:4317"
   otel_service_name: "user-service"
