@@ -1,4 +1,4 @@
-package ci_checks_test
+package cichecks
 
 import (
 	"go/parser"

@@ -172,7 +172,12 @@ func decodeHash(encodedHash string) (salt, hash []byte, params *hashParams, err 
 		return nil, nil, nil, fmt.Errorf("%w: invalid hash encoding: %v", ErrInvalidHash, err)
 	}
 
-	params.keyLength = uint32(len(hash))
+	// Validate hash length before conversion to prevent integer overflow
+	hashLen := len(hash)
+	if hashLen < 0 || hashLen > 1<<31-1 {
+		return nil, nil, nil, fmt.Errorf("%w: invalid hash length", ErrInvalidHash)
+	}
+	params.keyLength = uint32(hashLen) // #nosec G115 -- validated above
 
 	return salt, hash, params, nil
 }

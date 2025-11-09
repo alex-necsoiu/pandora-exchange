@@ -229,9 +229,17 @@ func (r *RefreshTokenRepository) GetAllActiveSessions(ctx context.Context, limit
 		"offset": offset,
 	}).Debug("Getting all active sessions")
 
+	// Validate pagination parameters to prevent integer overflow
+	if limit < 0 || limit > 1000 {
+		return nil, fmt.Errorf("invalid limit: must be between 0 and 1000")
+	}
+	if offset < 0 {
+		return nil, fmt.Errorf("invalid offset: must be non-negative")
+	}
+
 	dbTokens, err := r.queries.GetAllActiveSessions(ctx, postgres.GetAllActiveSessionsParams{
-		Limit:  int32(limit),
-		Offset: int32(offset),
+		Limit:  int32(limit),  // #nosec G115 -- validated above
+		Offset: int32(offset), // #nosec G115 -- validated above
 	})
 	if err != nil {
 		r.logger.WithError(err).Error("Failed to get all active sessions")
