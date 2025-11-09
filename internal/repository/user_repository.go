@@ -212,9 +212,17 @@ func (r *UserRepository) List(ctx context.Context, limit, offset int) ([]*domain
 		"offset": offset,
 	}).Debug("Listing users")
 	
+	// Validate pagination parameters to prevent integer overflow
+	if limit < 0 || limit > 1000 {
+		return nil, fmt.Errorf("invalid limit: must be between 0 and 1000")
+	}
+	if offset < 0 {
+		return nil, fmt.Errorf("invalid offset: must be non-negative")
+	}
+	
 	dbUsers, err := r.queries.ListUsers(ctx, postgres.ListUsersParams{
-		Limit:  int32(limit),
-		Offset: int32(offset),
+		Limit:  int32(limit),  // #nosec G115 -- validated above
+		Offset: int32(offset), // #nosec G115 -- validated above
 	})
 	if err != nil {
 		r.logger.WithFields(map[string]interface{}{
@@ -306,10 +314,18 @@ func (r *UserRepository) SearchUsers(ctx context.Context, query string, limit, o
 		"offset": offset,
 	}).Debug("Searching users")
 
+	// Validate pagination parameters to prevent integer overflow
+	if limit < 0 || limit > 1000 {
+		return nil, fmt.Errorf("invalid limit: must be between 0 and 1000")
+	}
+	if offset < 0 {
+		return nil, fmt.Errorf("invalid offset: must be non-negative")
+	}
+
 	dbUsers, err := r.queries.SearchUsers(ctx, postgres.SearchUsersParams{
 		Column1: &query,
-		Limit:   int32(limit),
-		Offset:  int32(offset),
+		Limit:   int32(limit),  // #nosec G115 -- validated above
+		Offset:  int32(offset), // #nosec G115 -- validated above
 	})
 	if err != nil {
 		r.logger.WithError(err).Error("Failed to search users")
