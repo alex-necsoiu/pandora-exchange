@@ -1,0 +1,337 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  GO_VERSION: '1.23'
+
+jobs:
+  # Code Quality Checks
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
+
+  # Go Vet
+  vet:
+    name: Go Vet
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run go vet
+        run: go vet ./...
+
+  # Security Scanning
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install gosec
+        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.21.4
+
+      - name: Run gosec security scanner
+        run: |
+          gosec -fmt=sarif -out=gosec-results.sarif \
+            -exclude=G101,G103 \
+            -exclude-dir=internal/postgres \
+            -exclude-dir=internal/transport/grpc/proto \
+            ./... || true
+
+      - name: Upload gosec results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: gosec-results.sarif
+
+      - name: Run gosec for PR comments
+        run: |
+          gosec -fmt=text \
+            -exclude=G101,G103 \
+            -exclude-dir=internal/postgres \
+            -exclude-dir=internal/transport/grpc/proto \
+            ./...
+
+  # Import Boundaries Check
+  imports-check:
+    name: Architecture Boundaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Check import boundaries
+        run: |
+          go test ./internal/ci_checks/... -v -run TestDomainLayerImportBoundaries
+          go test ./internal/ci_checks/... -v -run TestRepositoryLayerImportBoundaries
+          go test ./internal/ci_checks/... -v -run TestServiceLayerImportBoundaries
+
+  # Unit Tests
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: pandora
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: pandora_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run tests with race detector
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: pandora
+          DB_PASSWORD: test_password
+          DB_NAME: pandora_test
+          DB_SSLMODE: disable
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          JWT_SECRET: test-secret-key-minimum-32-characters-long-for-testing
+          APP_ENV: test
+        run: go test -v -race -timeout=5m -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: success()
+        with:
+          files: ./coverage.out
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+      - name: Generate coverage report
+        if: success()
+        run: |
+          go tool cover -func=coverage.out | grep total | awk '{print "Total Coverage: " $3}'
+
+  # Build Verification
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Build binary
+        run: go build -v -o bin/user-service ./cmd/user-service
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: user-service-binary
+          path: bin/user-service
+          retention-days: 7
+
+  # Database Migrations Check
+  migrations:
+    name: Database Migrations
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: pandora
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: pandora_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install migrate
+        run: |
+          curl -L https://github.com/golang-migrate/migrate/releases/download/v4.17.0/migrate.linux-amd64.tar.gz | tar xvz
+          sudo mv migrate /usr/local/bin/
+          migrate -version
+
+      - name: Run migrations up
+        run: |
+          migrate -path migrations \
+            -database "postgresql://pandora:test_password@localhost:5432/pandora_test?sslmode=disable" \
+            up
+
+      - name: Verify migrations
+        run: |
+          migrate -path migrations \
+            -database "postgresql://pandora:test_password@localhost:5432/pandora_test?sslmode=disable" \
+            version
+
+  # Code Generation Verification
+  codegen:
+    name: Code Generation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install sqlc
+        run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: '25.x'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install protoc plugins
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+      - name: Generate sqlc code
+        run: sqlc generate
+
+      - name: Generate protobuf code
+        run: |
+          protoc --go_out=. --go_opt=paths=source_relative \
+            --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+            internal/transport/grpc/proto/*.proto
+
+      - name: Verify no changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Generated code is out of sync. Please run 'make sqlc' and 'make proto'."
+            git diff
+            exit 1
+          fi
+
+  # Dependency Check
+  dependencies:
+    name: Dependency Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Verify dependencies
+        run: |
+          go mod verify
+          go mod tidy
+          if [ -n "$(git status --porcelain go.mod go.sum)" ]; then
+            echo "go.mod or go.sum is not tidy. Please run 'go mod tidy'."
+            git diff go.mod go.sum
+            exit 1
+          fi
+
+  # All Checks Status
+  ci-success:
+    name: CI Success
+    runs-on: ubuntu-latest
+    needs: [lint, vet, security, imports-check, test, build, migrations, codegen, dependencies]
+    if: always()
+    steps:
+      - name: Check all jobs
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "One or more CI jobs failed"
+            exit 1
+          fi
+          echo "All CI checks passed successfully!"
