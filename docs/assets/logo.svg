@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Placeholder logo for Pandora Exchange -->
+  <!-- TODO: Replace with actual brand logo -->
+  
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="95" fill="#1a1a2e" stroke="#16213e" stroke-width="2"/>
+  
+  <!-- P letter stylized -->
+  <text x="100" y="130" font-family="Arial, sans-serif" font-size="100" font-weight="bold" fill="#00ADD8" text-anchor="middle">P</text>
+  
+  <!-- Subtitle -->
+  <text x="100" y="170" font-family="Arial, sans-serif" font-size="14" fill="#ffffff" text-anchor="middle" opacity="0.8">PANDORA</text>
+  
+  <!-- Exchange icon (simplified) -->
+  <g transform="translate(140, 60)">
+    <path d="M 0,0 L 20,10 L 0,20" fill="none" stroke="#00ADD8" stroke-width="3" stroke-linecap="round"/>
+    <path d="M 25,0 L 5,10 L 25,20" fill="none" stroke="#4CAF50" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>

@@ -1,0 +1,40 @@
+graph TB
+    subgraph "External Clients"
+        A[Web App] --> B[REST API - Gin]
+        C[Mobile App] --> B
+        D[Admin Portal] --> B
+    end
+    
+    subgraph "User Service"
+        B --> E[HTTP Handlers]
+        F[gRPC Service] --> G[Service Layer]
+        E --> G
+        G --> H[Domain Logic]
+        H --> I[Repository Interface]
+        I --> J[PostgreSQL - sqlc]
+        I --> K[Redis Cache]
+        H --> L[Event Publisher]
+        L --> M[Redis Streams]
+    end
+    
+    subgraph "Infrastructure"
+        J --> N[(PostgreSQL)]
+        K --> O[(Redis)]
+        M --> O
+        P[Vault] --> G
+        Q[OpenTelemetry] --> R[Jaeger/Grafana]
+    end
+    
+    subgraph "Other Microservices"
+        M --> S[Wallet Service]
+        M --> T[Trading Engine]
+        M --> U[Notification Service]
+        S -.->|gRPC| F
+        T -.->|gRPC| F
+    end
+    
+    style B fill:#4CAF50
+    style F fill:#2196F3
+    style H fill:#FF9800
+    style N fill:#9C27B0
+    style O fill:#F44336
