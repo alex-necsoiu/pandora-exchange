@@ -10,65 +10,65 @@ import (
 
 // RegisterRequest represents the request body for user registration.
 type RegisterRequest struct {
-	Email     string `json:"email" binding:"required,email"`
-	Password  string `json:"password" binding:"required,min=8"`
-	FirstName string `json:"first_name" binding:"required"`
-	LastName  string `json:"last_name" binding:"required"`
+	Email     string `json:"email" binding:"required,email" example:"user@example.com"`
+	Password  string `json:"password" binding:"required,min=8" example:"SecurePass123!"`
+	FirstName string `json:"first_name" binding:"required" example:"John"`
+	LastName  string `json:"last_name" binding:"required" example:"Doe"`
 }
 
 // LoginRequest represents the request body for user login.
 type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email    string `json:"email" example:"user@example.com"`
+	Password string `json:"password" example:"SecurePass123!"`
 }
 
 // RefreshTokenRequest represents the request body for token refresh.
 type RefreshTokenRequest struct {
-	RefreshToken string `json:"refresh_token"`
+	RefreshToken string `json:"refresh_token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
 }
 
 // LogoutRequest represents the request body for logout.
 type LogoutRequest struct {
-	RefreshToken string `json:"refresh_token" binding:"required"`
+	RefreshToken string `json:"refresh_token" binding:"required" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
 }
 
 // UpdateKYCRequest represents the request body for updating KYC status.
 type UpdateKYCRequest struct {
-	Status string `json:"status" binding:"required,oneof=none pending approved rejected"`
+	Status string `json:"status" binding:"required,oneof=none pending approved rejected" example:"approved"`
 }
 
 // UpdateProfileRequest represents the request body for updating user profile.
 type UpdateProfileRequest struct {
-	FirstName string `json:"first_name" binding:"required"`
-	LastName  string `json:"last_name" binding:"required"`
+	FirstName string `json:"first_name" binding:"required" example:"John"`
+	LastName  string `json:"last_name" binding:"required" example:"Doe"`
 }
 
 // AuthResponse represents the response body for authentication operations.
 type AuthResponse struct {
-	AccessToken  string     `json:"access_token"`
-	RefreshToken string     `json:"refresh_token"`
-	User         UserDTO    `json:"user"`
-	ExpiresAt    time.Time  `json:"expires_at"`
+	AccessToken  string    `json:"access_token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
+	RefreshToken string    `json:"refresh_token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
+	User         UserDTO   `json:"user"`
+	ExpiresAt    time.Time `json:"expires_at" example:"2025-11-12T15:04:05Z"`
 }
 
 // UserDTO represents a user in API responses.
 type UserDTO struct {
-	ID        uuid.UUID `json:"id"`
-	Email     string    `json:"email"`
-	FirstName string    `json:"first_name"`
-	LastName  string    `json:"last_name"`
-	KYCStatus string    `json:"kyc_status"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        uuid.UUID `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Email     string    `json:"email" example:"user@example.com"`
+	FirstName string    `json:"first_name" example:"John"`
+	LastName  string    `json:"last_name" example:"Doe"`
+	KYCStatus string    `json:"kyc_status" example:"approved"`
+	CreatedAt time.Time `json:"created_at" example:"2025-11-12T10:00:00Z"`
+	UpdatedAt time.Time `json:"updated_at" example:"2025-11-12T10:00:00Z"`
 }
 
 // SessionDTO represents an active session in API responses.
 type SessionDTO struct {
-	Token     string    `json:"token"`
-	IPAddress string    `json:"ip_address,omitempty"`
-	UserAgent string    `json:"user_agent,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-	ExpiresAt time.Time `json:"expires_at"`
+	Token     string    `json:"token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
+	IPAddress string    `json:"ip_address,omitempty" example:"192.168.1.1"`
+	UserAgent string    `json:"user_agent,omitempty" example:"Mozilla/5.0"`
+	CreatedAt time.Time `json:"created_at" example:"2025-11-12T10:00:00Z"`
+	ExpiresAt time.Time `json:"expires_at" example:"2025-11-19T10:00:00Z"`
 }
 
 // SessionsResponse represents the response body for getting active sessions.
@@ -78,14 +78,14 @@ type SessionsResponse struct {
 
 // ErrorResponse represents an error response.
 type ErrorResponse struct {
-	Error   string `json:"error"`
-	Message string `json:"message,omitempty"`
-	Code    string `json:"code,omitempty"`
+	Error   string `json:"error" example:"invalid_credentials"`
+	Message string `json:"message,omitempty" example:"Invalid email or password"`
+	Code    string `json:"code,omitempty" example:"AUTH_001"`
 }
 
 // MessageResponse represents a simple message response.
 type MessageResponse struct {
-	Message string `json:"message"`
+	Message string `json:"message" example:"Operation completed successfully"`
 }
 
 // toUserDTO converts a domain User to a UserDTO.
