@@ -23,6 +23,12 @@ data:
   redis_host: "redis.pandora.svc.cluster.local"
   redis_port: "6379"
   
+  # Redis idempotency middleware configuration
+  # Used for distributed request deduplication across multiple service instances
+  redis_idempotency_enabled: "true"
+  redis_idempotency_key_prefix: "idempotency:"  # Namespace for idempotency keys
+  redis_idempotency_ttl: "24h"                   # How long to cache responses
+  
   # JWT token expiry
   jwt_access_expiry: "15m"
   jwt_refresh_expiry: "168h"  # 7 days

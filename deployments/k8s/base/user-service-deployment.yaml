@@ -217,9 +217,10 @@ spec:
           failureThreshold: 3      # Restart after 3 failures
         
         # Readiness probe: Remove from load balancer if not ready
+        # Uses /health/services to verify all dependencies (DB, Redis, etc.)
         readinessProbe:
           httpGet:
-            path: /health
+            path: /health/services
             port: http
             scheme: HTTP
           initialDelaySeconds: 5   # Start checking after 5s

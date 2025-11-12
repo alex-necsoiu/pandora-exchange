@@ -4,6 +4,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: user-service
+  namespace: pandora
 spec:
   replicas: 5  # Start with 5 replicas for HA
   template:
