@@ -18,34 +18,61 @@ help:
 	@echo "Pandora Exchange - User Service"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  make dev-up          - Start PostgreSQL + Redis in Docker"
-	@echo "  make dev-down        - Stop development environment"
-	@echo "  make migrate         - Run database migrations (up)"
-	@echo "  make migrate-down    - Rollback last migration"
-	@echo "  make migrate-force   - Force migration to specific version"
-	@echo "  make migrate-version - Show current migration version"
-	@echo "  make migrate-create  - Create new migration files (use NAME=migration_name)"
-	@echo "  make sqlc            - Generate sqlc code from SQL queries"
-	@echo "  make proto           - Generate gRPC code from protobuf"
-	@echo "  make test            - Run all tests"
-	@echo "  make test-unit       - Run unit tests only (exclude integration)"
-	@echo "  make test-integration- Run integration tests only"
-	@echo "  make test-bench      - Run benchmarks"
-	@echo "  make test-coverage   - Run tests with coverage report"
-	@echo "  make imports-check   - Check import boundaries (architecture enforcement)"
-	@echo "  make security-scan   - Run security vulnerability scan (gosec)"
-	@echo "  make docs            - Generate Go documentation"
-	@echo "  make lint            - Run golangci-lint"
-	@echo "  make fmt             - Format Go code"
-	@echo "  make vet             - Run go vet"
-	@echo "  make check           - Run all checks (fmt, vet, lint, imports-check, test)"
-	@echo "  make ci              - Run all CI checks (deps, fmt, vet, lint, imports, security, test)"
-	@echo "  make build           - Build service binary"
-	@echo "  make run             - Run service locally"
-	@echo "  make dev             - Start dev environment, migrate, build and run service"
-	@echo "  make docker-build    - Build Docker image"
-	@echo "  make clean           - Clean build artifacts"
-	@echo "  make install-tools   - Install required development tools"
+	@echo "  Development:"
+	@echo "    make dev-up          - Start PostgreSQL + Redis in Docker"
+	@echo "    make dev-down        - Stop development environment"
+	@echo "    make dev             - Start dev environment, migrate, build and run"
+	@echo ""
+	@echo "  Database:"
+	@echo "    make migrate         - Run database migrations (up)"
+	@echo "    make migrate-down    - Rollback last migration"
+	@echo "    make migrate-force   - Force migration to specific version"
+	@echo "    make migrate-version - Show current migration version"
+	@echo "    make migrate-create  - Create new migration (use NAME=name)"
+	@echo ""
+	@echo "  Code Generation:"
+	@echo "    make sqlc            - Generate sqlc code from SQL queries"
+	@echo "    make proto           - Generate gRPC code from protobuf"
+	@echo ""
+	@echo "  Testing:"
+	@echo "    make test            - Run all tests"
+	@echo "    make test-unit       - Run unit tests only"
+	@echo "    make test-integration- Run integration tests only"
+	@echo "    make test-bench      - Run benchmarks"
+	@echo "    make test-coverage   - Run tests with coverage report"
+	@echo ""
+	@echo "  Code Quality:"
+	@echo "    make fmt             - Format Go code"
+	@echo "    make vet             - Run go vet"
+	@echo "    make lint            - Run golangci-lint"
+	@echo "    make imports-check   - Check import boundaries"
+	@echo "    make security-scan   - Run security scan (gosec)"
+	@echo "    make check           - Run all checks"
+	@echo "    make ci              - Run all CI checks"
+	@echo ""
+	@echo "  Build & Run:"
+	@echo "    make build           - Build service binary"
+	@echo "    make run             - Run service locally"
+	@echo ""
+	@echo "  Docker:"
+	@echo "    make docker-build    - Build Docker image with version info"
+	@echo "    make docker-run      - Run Docker container locally"
+	@echo "    make docker-stop     - Stop and remove Docker container"
+	@echo "    make docker-push     - Push to registry (use REGISTRY=url)"
+	@echo "    make docker-scan     - Scan image for vulnerabilities"
+	@echo ""
+	@echo "  Docker Compose:"
+	@echo "    make compose-up      - Start all services"
+	@echo "    make compose-down    - Stop all services"
+	@echo "    make compose-logs    - Show logs from all services"
+	@echo "    make compose-rebuild - Rebuild and restart services"
+	@echo ""
+	@echo "  Other:"
+	@echo "    make docs            - Generate Go documentation"
+	@echo "    make clean           - Clean build artifacts"
+	@echo "    make install-tools   - Install development tools"
+	@echo "    make deps            - Download dependencies"
+	@echo "    make tidy            - Tidy Go modules"
 
 ## install-tools: Install required development tools
 install-tools:
@@ -235,11 +262,99 @@ dev:
 	@echo "Loading environment from .env.dev..."
 	@export $$(cat .env.dev | xargs) && ./bin/$(SERVICE_NAME)
 
-## docker-build: Build Docker image
+## docker-build: Build Docker image with version info
 docker-build:
 	@echo "Building Docker image..."
-	docker build -t pandora/$(SERVICE_NAME):latest -f deployments/docker/Dockerfile .
+	@VERSION=$$(git describe --tags --always --dirty 2>/dev/null || echo "dev"); \
+	COMMIT=$$(git rev-parse HEAD 2>/dev/null || echo "unknown"); \
+	BUILD_TIME=$$(date -u +"%Y-%m-%dT%H:%M:%SZ"); \
+	echo "Version: $$VERSION, Commit: $$COMMIT, Build Time: $$BUILD_TIME"; \
+	docker build \
+		--build-arg VERSION=$$VERSION \
+		--build-arg COMMIT=$$COMMIT \
+		--build-arg BUILD_TIME=$$BUILD_TIME \
+		-t pandora/$(SERVICE_NAME):latest \
+		-t pandora/$(SERVICE_NAME):$$VERSION \
+		.
 	@echo "✅ Docker image built: pandora/$(SERVICE_NAME):latest"
+
+## docker-run: Run Docker container locally
+docker-run:
+	@echo "Running Docker container..."
+	docker run -d \
+		--name $(SERVICE_NAME) \
+		-p 8080:8080 \
+		-p 9090:9090 \
+		-p 2112:2112 \
+		--network pandora-network \
+		-e APP_ENV=development \
+		-e DATABASE_HOST=postgres \
+		-e REDIS_HOST=redis \
+		pandora/$(SERVICE_NAME):latest
+	@echo "✅ Container started: $(SERVICE_NAME)"
+	@echo "HTTP: http://localhost:8080"
+	@echo "gRPC: localhost:9090"
+	@echo "Metrics: http://localhost:2112/metrics"
+
+## docker-stop: Stop and remove Docker container
+docker-stop:
+	@echo "Stopping Docker container..."
+	docker stop $(SERVICE_NAME) || true
+	docker rm $(SERVICE_NAME) || true
+	@echo "✅ Container stopped and removed"
+
+## docker-push: Push Docker image to registry
+docker-push:
+	@if [ -z "$(REGISTRY)" ]; then \
+		echo "❌ ERROR: REGISTRY not specified"; \
+		echo "Usage: make docker-push REGISTRY=ghcr.io/alex-necsoiu/pandora-exchange"; \
+		exit 1; \
+	fi
+	@VERSION=$$(git describe --tags --always --dirty 2>/dev/null || echo "dev"); \
+	echo "Pushing to $(REGISTRY)/$(SERVICE_NAME):$$VERSION"; \
+	docker tag pandora/$(SERVICE_NAME):latest $(REGISTRY)/$(SERVICE_NAME):$$VERSION; \
+	docker tag pandora/$(SERVICE_NAME):latest $(REGISTRY)/$(SERVICE_NAME):latest; \
+	docker push $(REGISTRY)/$(SERVICE_NAME):$$VERSION; \
+	docker push $(REGISTRY)/$(SERVICE_NAME):latest
+	@echo "✅ Docker images pushed to registry"
+
+## docker-scan: Scan Docker image for vulnerabilities
+docker-scan:
+	@echo "Scanning Docker image with Trivy..."
+	@command -v trivy >/dev/null 2>&1 || { \
+		echo "trivy not installed. Installing..."; \
+		brew install trivy || echo "Please install trivy manually"; \
+	}
+	trivy image pandora/$(SERVICE_NAME):latest
+	@echo "✅ Docker scan completed"
+
+## compose-up: Start all services with docker-compose
+compose-up:
+	@echo "Starting services with docker-compose..."
+	docker-compose -f docker-compose.dev.yml up -d
+	@echo "✅ All services started"
+	@echo ""
+	@echo "Available services:"
+	@echo "  User Service: http://localhost:8080"
+	@echo "  Metrics: http://localhost:2112/metrics"
+	@echo "  PostgreSQL: localhost:5432"
+	@echo "  Redis: localhost:6379"
+
+## compose-down: Stop all services
+compose-down:
+	@echo "Stopping services..."
+	docker-compose -f docker-compose.dev.yml down
+	@echo "✅ All services stopped"
+
+## compose-logs: Show logs from all services
+compose-logs:
+	docker-compose -f docker-compose.dev.yml logs -f
+
+## compose-rebuild: Rebuild and restart services
+compose-rebuild:
+	@echo "Rebuilding services..."
+	docker-compose -f docker-compose.dev.yml up -d --build
+	@echo "✅ Services rebuilt and restarted"
 
 ## clean: Clean build artifacts
 clean:
