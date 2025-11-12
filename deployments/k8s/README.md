@@ -401,6 +401,61 @@ kubectl create secret generic user-service-secrets-prod \
 
 ### Environment Variables
 
+**Core Environment Variables:**
+
+| Variable | Required | Default | Description | Example |
+|----------|----------|---------|-------------|---------|
+| `APP_ENV` | Yes | - | Environment name | `dev`, `staging`, `prod` |
+| `DB_HOST` | Yes | - | PostgreSQL hostname | `postgres.pandora.svc.cluster.local` |
+| `DB_PORT` | Yes | `5432` | PostgreSQL port | `5432` |
+| `DB_NAME` | Yes | - | Database name | `pandora_prod` |
+| `DB_USER` | Yes | - | Database username | `pandora` |
+| `DB_PASSWORD` | Yes | - | Database password (from Secret/Vault) | `<secret>` |
+| `DB_SSLMODE` | Yes | `disable` | SSL mode (`disable`, `require`) | `require` |
+| `JWT_SECRET` | Yes | - | JWT signing key (from Secret/Vault) | `<64-char-key>` |
+| `JWT_ACCESS_TOKEN_EXPIRY` | No | `15m` | Access token TTL | `15m`, `1h` |
+| `JWT_REFRESH_TOKEN_EXPIRY` | No | `168h` | Refresh token TTL | `168h` (7 days) |
+| `REDIS_HOST` | Yes | - | Redis hostname | `redis.pandora.svc.cluster.local` |
+| `REDIS_PORT` | Yes | `6379` | Redis port | `6379` |
+| `REDIS_DB` | No | `0` | Redis database number | `0`, `1` |
+| `REDIS_PASSWORD` | No | - | Redis password (from Secret/Vault) | `<secret>` |
+| `REDIS_IDEMPOTENCY_ENABLED` | No | `true` | Enable Redis-backed idempotency | `true`, `false` |
+| `REDIS_IDEMPOTENCY_KEY_PREFIX` | No | `idempotency:` | Key prefix for isolation | `idempotency:prod:` |
+| `REDIS_IDEMPOTENCY_TTL` | No | `24h` | How long to cache responses | `24h`, `1h` |
+| `AUDIT_RETENTION_DAYS` | No | `90` | Audit log retention (days) | `90`, `2555` |
+| `AUDIT_CLEANUP_INTERVAL` | No | `24h` | Cleanup job interval | `24h`, `12h` |
+| `VAULT_ENABLED` | No | `false` | Enable Vault secret management | `true`, `false` |
+| `VAULT_ADDR` | If Vault | - | Vault server address | `https://vault:8200` |
+| `VAULT_SECRET_PATH` | If Vault | - | Base path for secrets | `secret/data/pandora/user-service` |
+
+**Redis Idempotency Middleware:**
+
+The service uses Redis-backed idempotency to prevent duplicate request processing in multi-instance deployments:
+
+- **Purpose**: Ensures POST/PUT/PATCH requests are processed exactly once across all service instances
+- **How it works**: 
+  1. Client sends request with `Idempotency-Key` header
+  2. Service checks Redis for existing response
+  3. If found, returns cached response (status code + headers + body)
+  4. If not found, processes request and caches response in Redis
+  5. Distributed locking prevents race conditions
+- **TTL**: Cached responses expire after `REDIS_IDEMPOTENCY_TTL` (default: 24h)
+- **Key Prefix**: Use different prefixes per environment for isolation (`idempotency:dev:`, `idempotency:prod:`)
+
+**Configuration Example:**
+
+```yaml
+# Development: Use in-memory store (single instance)
+redis_idempotency_enabled: "false"
+
+# Production: Use Redis store (multi-instance HA)
+redis_idempotency_enabled: "true"
+redis_idempotency_key_prefix: "idempotency:prod:"
+redis_idempotency_ttl: "24h"
+```
+
+See `docs/middleware/idempotency.md` for detailed documentation.
+
 **Override environment variables:**
 
 ```bash
@@ -558,6 +613,59 @@ kubectl logs -n pandora -l app=user-service --since=24h > user-service-logs.txt
 ## Monitoring & Observability
 
 ### Health Checks
+
+**Available Health Endpoints:**
+
+| Endpoint | Purpose | Used By | Response |
+|----------|---------|---------|----------|
+| `GET /health` | Basic liveness check | Liveness probe | `{"status": "ok"}` |
+| `GET /health/services` | Dependency health check | Readiness probe | `{"services": [...], "count": 3}` |
+
+**Liveness Probe** (`/health`):
+- Checks if the application process is running
+- Kubernetes restarts the pod if this fails
+- Does NOT check dependencies (DB, Redis)
+- Fast response (<10ms)
+
+**Readiness Probe** (`/health/services`):
+- Checks all service dependencies (ServiceRegistry)
+- Validates: Database, Redis, EventPublisher connections
+- Kubernetes removes pod from load balancer if this fails
+- May be slower due to dependency checks (~100ms)
+
+**Why use `/health/services` for readiness?**
+
+Using the service registry health check ensures that:
+- Pods only receive traffic when all dependencies are healthy
+- Database connection issues immediately remove pod from rotation
+- Redis failures (for idempotency) prevent request processing
+- Graceful degradation during rolling deployments
+- Better zero-downtime deployments
+
+**Example Response:**
+
+```json
+{
+  "services": [
+    {"name": "database", "status": "healthy"},
+    {"name": "redis", "status": "healthy"},
+    {"name": "event_publisher", "status": "healthy"}
+  ],
+  "count": 3
+}
+```
+
+**Test Health Endpoints:**
+
+```bash
+# Basic health (should always respond if pod is running)
+kubectl run curl --image=curlimages/curl -i --rm --restart=Never -- \
+  curl http://user-service.pandora.svc.cluster.local:8080/health
+
+# Service health (checks all dependencies)
+kubectl run curl --image=curlimages/curl -i --rm --restart=Never -- \
+  curl http://user-service.pandora.svc.cluster.local:8080/health/services
+```
 
 **Check Service Health:**
 
