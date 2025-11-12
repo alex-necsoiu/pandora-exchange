@@ -1,0 +1,352 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>vault: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/alex-necsoiu/pandora-exchange/internal/vault/client.go (77.3%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">// Package vault provides HashiCorp Vault integration for secure secret management.
+// It implements the secret fetching interface with fallback to environment variables
+// for local development. In production, secrets are fetched from Vault KV v2 store.
+package vault
+
+import (
+        "context"
+        "fmt"
+        "os"
+        "strings"
+
+        vault "github.com/hashicorp/vault/api"
+)
+
+// Client wraps the Vault API client with convenience methods for secret management
+type Client struct {
+        client *vault.Client
+        enabled bool
+}
+
+// SecretRequest represents a request to fetch a secret from Vault
+type SecretRequest struct {
+        Path string // Vault path (e.g., "secret/data/app/jwt")
+        Key  string // Key within the secret (e.g., "secret")
+}
+
+// SecretResponse contains the fetched secret value
+type SecretResponse struct {
+        Path  string
+        Key   string
+        Value string
+}
+
+// NewClient creates a new Vault client instance
+//
+// Parameters:
+//   - addr: Vault server address (e.g., "http://localhost:8200" or "https://vault.example.com")
+//   - token: Vault authentication token
+//
+// Returns:
+//   - *Client: Configured Vault client
+//   - error: Returns error if addr or token is empty, or if client creation fails
+//
+// Security: Token should be provided via environment variable, not hardcoded
+func NewClient(addr, token string) (*Client, error) <span class="cov8" title="1">{
+        if addr == "" </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("vault address cannot be empty")
+        }</span>
+        <span class="cov8" title="1">if token == "" </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("vault token cannot be empty")
+        }</span>
+
+        <span class="cov8" title="1">config := vault.DefaultConfig()
+        config.Address = addr
+
+        client, err := vault.NewClient(config)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to create vault client: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">client.SetToken(token)
+
+        return &amp;Client{
+                client:  client,
+                enabled: true,
+        }, nil</span>
+}
+
+// NewDisabledClient creates a disabled client for local development
+// When disabled, all Get* methods will fall back to environment variables
+//
+// Returns:
+//   - *Client: Client with enabled=false
+func NewDisabledClient() *Client <span class="cov8" title="1">{
+        return &amp;Client{
+                client:  nil,
+                enabled: false,
+        }
+}</span>
+
+// IsAvailable checks if Vault server is reachable and client is authenticated
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeout control
+//
+// Returns:
+//   - bool: true if Vault is available and client can authenticate
+//
+// Use this for health checks before attempting to fetch secrets
+func (c *Client) IsAvailable(ctx context.Context) bool <span class="cov8" title="1">{
+        if !c.enabled || c.client == nil </span><span class="cov8" title="1">{
+                return false
+        }</span>
+
+        // Try to read sys/health endpoint
+        <span class="cov8" title="1">req := c.client.NewRequest("GET", "/v1/sys/health")
+        resp, err := c.client.RawRequestWithContext(ctx, req)
+        if err != nil </span><span class="cov8" title="1">{
+                return false
+        }</span>
+        <span class="cov0" title="0">defer resp.Body.Close()
+
+        return resp.StatusCode == 200 || resp.StatusCode == 429</span> // 429 = sealed but available
+}
+
+// GetSecret fetches a single secret from Vault KV v2
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeout
+//   - path: Full Vault path including mount point (e.g., "secret/data/app/jwt")
+//   - key: Key within the secret data (e.g., "secret")
+//   - envFallback: Environment variable name to use if Vault unavailable
+//
+// Returns:
+//   - string: Secret value
+//   - error: Returns error if path/key empty, secret not found, or Vault unavailable with no fallback
+//
+// Example:
+//   secret, err := client.GetSecret(ctx, "secret/data/app/jwt", "secret", "JWT_SECRET")
+//
+// Security: Falls back to ENV only if Vault is disabled (dev mode)
+func (c *Client) GetSecret(ctx context.Context, path, key, envFallback string) (string, error) <span class="cov8" title="1">{
+        if path == "" </span><span class="cov8" title="1">{
+                return "", fmt.Errorf("vault path cannot be empty")
+        }</span>
+        <span class="cov8" title="1">if key == "" </span><span class="cov8" title="1">{
+                return "", fmt.Errorf("secret key cannot be empty")
+        }</span>
+
+        // If Vault is disabled (dev mode), use environment variable
+        <span class="cov8" title="1">if !c.enabled </span><span class="cov8" title="1">{
+                if envFallback == "" </span><span class="cov8" title="1">{
+                        return "", fmt.Errorf("vault disabled and no environment fallback provided")
+                }</span>
+                <span class="cov8" title="1">value := os.Getenv(envFallback)
+                if value == "" </span><span class="cov8" title="1">{
+                        return "", fmt.Errorf("environment variable %s not set", envFallback)
+                }</span>
+                <span class="cov8" title="1">return value, nil</span>
+        }
+
+        // Fetch from Vault
+        <span class="cov8" title="1">secret, err := c.client.Logical().ReadWithContext(ctx, path)
+        if err != nil </span><span class="cov8" title="1">{
+                // If Vault fetch fails and ENV fallback provided, try ENV
+                if envFallback != "" </span><span class="cov8" title="1">{
+                        if value := os.Getenv(envFallback); value != "" </span><span class="cov8" title="1">{
+                                return value, nil
+                        }</span>
+                }
+                <span class="cov8" title="1">return "", fmt.Errorf("failed to read secret from vault: %w", err)</span>
+        }
+
+        <span class="cov0" title="0">if secret == nil </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("secret not found at path: %s", path)
+        }</span>
+
+        // KV v2 stores data under "data" key
+        <span class="cov0" title="0">data, ok := secret.Data["data"].(map[string]interface{})
+        if !ok </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("unexpected secret format at path: %s", path)
+        }</span>
+
+        <span class="cov0" title="0">value, ok := data[key].(string)
+        if !ok </span><span class="cov0" title="0">{
+                return "", fmt.Errorf("key '%s' not found or not a string in secret at path: %s", key, path)
+        }</span>
+
+        <span class="cov0" title="0">return value, nil</span>
+}
+
+// GetSecrets fetches multiple secrets in batch
+//
+// Parameters:
+//   - ctx: Context for cancellation and timeout
+//   - requests: Slice of secret requests to fetch
+//
+// Returns:
+//   - map[string]string: Map of "path:key" to secret value
+//   - error: Returns error if any secret fetch fails
+//
+// Example:
+//   requests := []SecretRequest{
+//     {Path: "secret/data/app/jwt", Key: "secret"},
+//     {Path: "secret/data/app/db", Key: "password"},
+//   }
+//   secrets, err := client.GetSecrets(ctx, requests)
+//
+// Note: If any secret fails, the entire operation fails (fail-fast)
+func (c *Client) GetSecrets(ctx context.Context, requests []SecretRequest) (map[string]string, error) <span class="cov8" title="1">{
+        if len(requests) == 0 </span><span class="cov8" title="1">{
+                return nil, fmt.Errorf("no secret requests provided")
+        }</span>
+
+        <span class="cov8" title="1">secrets := make(map[string]string, len(requests))
+
+        for _, req := range requests </span><span class="cov8" title="1">{
+                // For batch operations, we don't provide ENV fallback
+                value, err := c.GetSecret(ctx, req.Path, req.Key, "")
+                if err != nil </span><span class="cov8" title="1">{
+                        return nil, fmt.Errorf("failed to fetch secret %s:%s: %w", req.Path, req.Key, err)
+                }</span>
+
+                // Use "path:key" as map key for uniqueness
+                <span class="cov0" title="0">mapKey := fmt.Sprintf("%s:%s", req.Path, req.Key)
+                secrets[mapKey] = value</span>
+        }
+
+        <span class="cov0" title="0">return secrets, nil</span>
+}
+
+// GetSecretWithEnvFallback is a convenience method that always tries ENV if Vault fails
+// This is useful for local development where Vault might not be available
+//
+// Parameters:
+//   - ctx: Context for cancellation
+//   - path: Vault secret path
+//   - key: Key within secret
+//   - envVar: Environment variable name
+//
+// Returns:
+//   - string: Secret value from Vault or ENV
+//   - error: Only if both Vault and ENV fail
+func (c *Client) GetSecretWithEnvFallback(ctx context.Context, path, key, envVar string) (string, error) <span class="cov8" title="1">{
+        return c.GetSecret(ctx, path, key, envVar)
+}</span>
+
+// Enabled returns whether Vault integration is enabled
+func (c *Client) Enabled() bool <span class="cov8" title="1">{
+        return c.enabled
+}</span>
+
+// parseVaultPath splits a Vault path into mount and secret path
+// For KV v2: "secret/data/app/jwt" -&gt; ("secret", "app/jwt")
+func parseVaultPath(fullPath string) (mount string, secretPath string, err error) <span class="cov8" title="1">{
+        parts := strings.Split(fullPath, "/")
+        if len(parts) &lt; 3 </span><span class="cov8" title="1">{
+                return "", "", fmt.Errorf("invalid vault path format: %s", fullPath)
+        }</span>
+
+        // KV v2 paths include "/data/"
+        <span class="cov8" title="1">if len(parts) &gt;= 3 &amp;&amp; parts[1] == "data" </span><span class="cov8" title="1">{
+                mount = parts[0]
+                secretPath = strings.Join(parts[2:], "/")
+                return mount, secretPath, nil
+        }</span>
+
+        <span class="cov8" title="1">return "", "", fmt.Errorf("unsupported vault path format (expected KV v2): %s", fullPath)</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

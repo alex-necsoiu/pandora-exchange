@@ -33,14 +33,15 @@ const (
 
 // Config holds all configuration for the User Service
 type Config struct {
-	AppEnv   string         `mapstructure:"APP_ENV"`
-	Server   ServerConfig   `mapstructure:",squash"`
-	Database DatabaseConfig `mapstructure:",squash"`
-	JWT      JWTConfig      `mapstructure:",squash"`
-	Redis    RedisConfig    `mapstructure:",squash"`
-	Tracing  TracingConfig  `mapstructure:",squash"`
-	Audit    AuditConfig    `mapstructure:",squash"`
-	Vault    VaultConfig    `mapstructure:",squash"`
+	AppEnv      string            `mapstructure:"APP_ENV"`
+	Server      ServerConfig      `mapstructure:",squash"`
+	Database    DatabaseConfig    `mapstructure:",squash"`
+	JWT         JWTConfig         `mapstructure:",squash"`
+	Redis       RedisConfig       `mapstructure:",squash"`
+	Tracing     TracingConfig     `mapstructure:",squash"`
+	Audit       AuditConfig       `mapstructure:",squash"`
+	Vault       VaultConfig       `mapstructure:",squash"`
+	RateLimit   RateLimitConfig   `mapstructure:",squash"`
 }
 
 // ServerConfig holds HTTP/gRPC server configuration
@@ -120,6 +121,27 @@ type VaultConfig struct {
 	SecretPath string `mapstructure:"VAULT_SECRET_PATH"`
 }
 
+// RateLimitConfig holds rate limiting configuration
+type RateLimitConfig struct {
+	// RequestsPerWindow is the maximum requests allowed per IP in the time window
+	RequestsPerWindow int `mapstructure:"RATE_LIMIT_REQUESTS_PER_WINDOW"`
+	
+	// WindowDuration is the time window for rate limiting (e.g., "1m", "1h")
+	WindowDuration time.Duration `mapstructure:"RATE_LIMIT_WINDOW_DURATION"`
+	
+	// EnablePerUserLimits enables per-user rate limiting for authenticated requests
+	EnablePerUserLimits bool `mapstructure:"RATE_LIMIT_ENABLE_PER_USER"`
+	
+	// UserRequestsPerWindow is the maximum requests allowed per user (when EnablePerUserLimits is true)
+	UserRequestsPerWindow int `mapstructure:"RATE_LIMIT_USER_REQUESTS_PER_WINDOW"`
+	
+	// LoginRequestsPerWindow is the maximum login attempts per IP
+	LoginRequestsPerWindow int `mapstructure:"RATE_LIMIT_LOGIN_REQUESTS"`
+	
+	// LoginWindowDuration is the time window for login rate limiting
+	LoginWindowDuration time.Duration `mapstructure:"RATE_LIMIT_LOGIN_WINDOW"`
+}
+
 // Load reads configuration from environment variables
 // Returns error if required variables are missing or invalid
 func Load() (*Config, error) {
@@ -145,6 +167,14 @@ func Load() (*Config, error) {
 	v.SetDefault("VAULT_ENABLED", false)
 	v.SetDefault("VAULT_ADDR", "http://localhost:8200")
 	v.SetDefault("VAULT_SECRET_PATH", "secret/data/pandora/user-service")
+	
+	// Rate limiting defaults
+	v.SetDefault("RATE_LIMIT_REQUESTS_PER_WINDOW", 100)
+	v.SetDefault("RATE_LIMIT_WINDOW_DURATION", "1m")
+	v.SetDefault("RATE_LIMIT_ENABLE_PER_USER", true)
+	v.SetDefault("RATE_LIMIT_USER_REQUESTS_PER_WINDOW", 60)
+	v.SetDefault("RATE_LIMIT_LOGIN_REQUESTS", 5)
+	v.SetDefault("RATE_LIMIT_LOGIN_WINDOW", "15m")
 
 	// Bind environment variables explicitly
 	v.AutomaticEnv()
@@ -160,6 +190,9 @@ func Load() (*Config, error) {
 		"OTEL_ENABLED", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_SERVICE_NAME", "OTEL_SAMPLE_RATE",
 		"AUDIT_RETENTION_DAYS", "AUDIT_CLEANUP_INTERVAL",
 		"VAULT_ENABLED", "VAULT_ADDR", "VAULT_TOKEN", "VAULT_SECRET_PATH",
+		"RATE_LIMIT_REQUESTS_PER_WINDOW", "RATE_LIMIT_WINDOW_DURATION",
+		"RATE_LIMIT_ENABLE_PER_USER", "RATE_LIMIT_USER_REQUESTS_PER_WINDOW",
+		"RATE_LIMIT_LOGIN_REQUESTS", "RATE_LIMIT_LOGIN_WINDOW",
 	}
 	for _, env := range envVars {
 		_ = v.BindEnv(env)
