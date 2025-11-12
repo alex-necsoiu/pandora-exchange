@@ -1,0 +1,143 @@
+# Pre-commit hooks for code quality and consistency
+# Install: pip install pre-commit
+# Setup: pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # Go formatting and linting
+  - repo: https://github.com/dnephin/pre-commit-golang
+    rev: v0.5.1
+    hooks:
+      - id: go-fmt
+        name: Format Go code
+        args: [-w]
+      
+      - id: go-vet
+        name: Go vet
+      
+      - id: go-mod-tidy
+        name: Verify go.mod is tidy
+      
+      - id: go-build
+        name: Build Go binary
+        args: [-o, /dev/null, ./cmd/user-service]
+
+  # golangci-lint for comprehensive linting
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v1.55.2
+    hooks:
+      - id: golangci-lint
+        name: golangci-lint
+        args: [--timeout=5m, --config=.golangci.yml]
+
+  # File formatting and trailing whitespace
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+        args: [--markdown-linebreak-ext=md]
+      
+      - id: end-of-file-fixer
+        name: Fix end of files
+      
+      - id: check-yaml
+        name: Check YAML syntax
+        args: [--allow-multiple-documents]
+      
+      - id: check-json
+        name: Check JSON syntax
+      
+      - id: check-added-large-files
+        name: Check for large files
+        args: [--maxkb=1024]
+      
+      - id: check-merge-conflict
+        name: Check for merge conflicts
+      
+      - id: detect-private-key
+        name: Detect private keys
+      
+      - id: mixed-line-ending
+        name: Check line endings
+        args: [--fix=lf]
+
+  # Security scanning
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.1
+    hooks:
+      - id: gitleaks
+        name: Detect secrets
+
+  # SQL formatting
+  - repo: https://github.com/sqlfluff/sqlfluff
+    rev: 3.0.0
+    hooks:
+      - id: sqlfluff-lint
+        name: Lint SQL files
+        args: [--dialect, postgres]
+        files: \.sql$
+
+  # Markdown linting
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.38.0
+    hooks:
+      - id: markdownlint
+        name: Lint Markdown files
+        args: [--fix, --disable, MD013, MD033, MD041]
+
+  # Conventional commits
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.0.0
+    hooks:
+      - id: conventional-pre-commit
+        name: Validate commit message
+        stages: [commit-msg]
+
+  # Local hooks for project-specific checks
+  - repo: local
+    hooks:
+      # Verify sqlc generation is up to date
+      - id: sqlc-verify
+        name: Verify sqlc generated code
+        entry: bash -c 'sqlc generate && git diff --exit-code internal/postgres/queries.sql.go'
+        language: system
+        pass_filenames: false
+        files: (\.sql$|sqlc\.yaml)
+      
+      # Verify protobuf generation is up to date
+      - id: proto-verify
+        name: Verify protobuf generated code
+        entry: bash -c 'make proto && git diff --exit-code internal/transport/grpc/proto/'
+        language: system
+        pass_filenames: false
+        files: \.proto$
+      
+      # Run tests on changed Go files
+      - id: go-test
+        name: Run Go tests
+        entry: bash -c 'go test -race -short ./...'
+        language: system
+        pass_filenames: false
+        files: \.go$
+      
+      # Check import boundaries (clean architecture)
+      - id: check-imports
+        name: Validate clean architecture boundaries
+        entry: bash -c 'go test -v ./internal/ci_checks/...'
+        language: system
+        pass_filenames: false
+        files: \.go$
+      
+      # Verify migrations are reversible
+      - id: migrations-check
+        name: Check migration pairs
+        entry: bash -c 'for up in migrations/*.up.sql; do down="${up/.up./.down.}"; [ -f "$down" ] || { echo "Missing down migration for $up"; exit 1; }; done'
+        language: system
+        pass_filenames: false
+        files: migrations/.*\.sql$
+
+# Configuration
+default_stages: [commit]
+fail_fast: false
+minimum_pre_commit_version: '2.20.0'
