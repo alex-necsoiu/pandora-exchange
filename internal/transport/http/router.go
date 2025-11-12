@@ -9,6 +9,10 @@ import (
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	grpcTransport "github.com/alex-necsoiu/pandora-exchange/internal/transport/grpc"
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+	
+	_ "github.com/alex-necsoiu/pandora-exchange/docs" // Import generated docs
 )
 
 // ServiceRegistry is the interface for gRPC service registry operations
@@ -73,6 +77,9 @@ func SetupUserRouter(
 
 	// Health check (no auth required)
 	router.GET("/health", handler.HealthCheck)
+
+	// Swagger documentation (no auth required)
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// API v1 routes (user-facing)
 	v1 := router.Group("/api/v1")

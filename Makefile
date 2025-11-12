@@ -33,6 +33,7 @@ help:
 	@echo "  Code Generation:"
 	@echo "    make sqlc            - Generate sqlc code from SQL queries"
 	@echo "    make proto           - Generate gRPC code from protobuf"
+	@echo "    make swagger         - Generate OpenAPI/Swagger documentation"
 	@echo ""
 	@echo "  Testing:"
 	@echo "    make test            - Run all tests"
@@ -84,6 +85,7 @@ install-tools:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	go install go.uber.org/mock/mockgen@latest
 	go install github.com/securego/gosec/v2/cmd/gosec@v2.21.4
+	go install github.com/swaggo/swag/cmd/swag@latest
 	@echo "✅ Tools installed successfully"
 
 ## dev-up: Start development environment (PostgreSQL + Redis)
@@ -154,6 +156,13 @@ proto:
 		--go-grpc_out=. --go-grpc_opt=paths=source_relative \
 		internal/transport/grpc/proto/*.proto
 	@echo "✅ gRPC code generated successfully"
+
+## swagger: Generate Swagger/OpenAPI documentation
+swagger:
+	@echo "Generating Swagger documentation..."
+	swag init -g cmd/user-service/main.go --output docs --parseDependency --parseInternal
+	@echo "✅ Swagger documentation generated"
+	@echo "Access at: http://localhost:8080/swagger/index.html"
 
 ## test: Run all tests
 test:

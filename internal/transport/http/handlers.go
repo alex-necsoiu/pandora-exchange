@@ -25,7 +25,18 @@ func NewHandler(userService domain.UserService, logger *observability.Logger) *H
 }
 
 // Register handles user registration requests.
-// POST /api/v1/auth/register
+//
+//	@Summary		Register a new user
+//	@Description	Create a new user account and return authentication tokens
+//	@Tags			Authentication
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		RegisterRequest	true	"User registration details"
+//	@Success		201		{object}	AuthResponse	"User registered successfully"
+//	@Failure		400		{object}	ErrorResponse	"Invalid request"
+//	@Failure		409		{object}	ErrorResponse	"User already exists"
+//	@Failure		500		{object}	ErrorResponse	"Internal server error"
+//	@Router			/auth/register [post]
 func (h *Handler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -86,7 +97,18 @@ func (h *Handler) Register(c *gin.Context) {
 }
 
 // Login handles user login requests.
-// POST /api/v1/auth/login
+//
+//	@Summary		Login user
+//	@Description	Authenticate user and return access tokens
+//	@Tags			Authentication
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		LoginRequest	true	"User login credentials"
+//	@Success		200		{object}	AuthResponse	"Login successful"
+//	@Failure		400		{object}	ErrorResponse	"Invalid request"
+//	@Failure		401		{object}	ErrorResponse	"Invalid credentials"
+//	@Failure		500		{object}	ErrorResponse	"Internal server error"
+//	@Router			/auth/login [post]
 func (h *Handler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -129,7 +151,18 @@ func (h *Handler) Login(c *gin.Context) {
 }
 
 // RefreshToken handles token refresh requests.
-// POST /api/v1/auth/refresh
+//
+//	@Summary		Refresh access token
+//	@Description	Exchange a refresh token for a new access token
+//	@Tags			Authentication
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		RefreshTokenRequest	true	"Refresh token"
+//	@Success		200		{object}	AuthResponse		"Token refreshed successfully"
+//	@Failure		400		{object}	ErrorResponse		"Invalid request"
+//	@Failure		401		{object}	ErrorResponse		"Invalid or expired refresh token"
+//	@Failure		500		{object}	ErrorResponse		"Internal server error"
+//	@Router			/auth/refresh [post]
 func (h *Handler) RefreshToken(c *gin.Context) {
 	var req RefreshTokenRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -168,7 +201,19 @@ func (h *Handler) RefreshToken(c *gin.Context) {
 }
 
 // Logout handles user logout requests.
-// POST /api/v1/auth/logout
+//
+//	@Summary		Logout user
+//	@Description	Invalidate refresh token and logout user from current device
+//	@Tags			Authentication
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			request	body		LogoutRequest	true	"Refresh token to invalidate"
+//	@Success		200		{object}	MessageResponse	"Logout successful"
+//	@Failure		400		{object}	ErrorResponse	"Invalid request"
+//	@Failure		401		{object}	ErrorResponse	"Unauthorized"
+//	@Failure		500		{object}	ErrorResponse	"Internal server error"
+//	@Router			/users/me/logout [post]
 func (h *Handler) Logout(c *gin.Context) {
 	var req LogoutRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -196,7 +241,17 @@ func (h *Handler) Logout(c *gin.Context) {
 }
 
 // LogoutAll handles logout from all devices.
-// POST /api/v1/auth/logout-all
+//
+//	@Summary		Logout from all devices
+//	@Description	Invalidate all refresh tokens for the user
+//	@Tags			Authentication
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	MessageResponse	"Logout successful"
+//	@Failure		401	{object}	ErrorResponse	"Unauthorized"
+//	@Failure		500	{object}	ErrorResponse	"Internal server error"
+//	@Router			/users/me/logout-all [post]
 func (h *Handler) LogoutAll(c *gin.Context) {
 	userID := getUserIDFromContext(c)
 	h.logger.WithField("user_id", userID).Info("Processing logout all request")
@@ -214,7 +269,18 @@ func (h *Handler) LogoutAll(c *gin.Context) {
 }
 
 // GetProfile handles get user profile requests.
-// GET /api/v1/users/me
+//
+//	@Summary		Get user profile
+//	@Description	Get current user's profile information
+//	@Tags			Users
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	UserDTO			"User profile"
+//	@Failure		401	{object}	ErrorResponse	"Unauthorized"
+//	@Failure		404	{object}	ErrorResponse	"User not found"
+//	@Failure		500	{object}	ErrorResponse	"Internal server error"
+//	@Router			/users/me [get]
 func (h *Handler) GetProfile(c *gin.Context) {
 	userID := getUserIDFromContext(c)
 	h.logger.WithField("user_id", userID).Debug("Getting user profile")
@@ -273,7 +339,19 @@ func (h *Handler) UpdateKYC(c *gin.Context) {
 }
 
 // UpdateProfile handles user profile update requests.
-// PUT /api/v1/users/me
+//
+//	@Summary		Update user profile
+//	@Description	Update current user's profile information
+//	@Tags			Users
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			request	body		UpdateProfileRequest	true	"Profile update data"
+//	@Success		200		{object}	UserDTO					"Updated user profile"
+//	@Failure		400		{object}	ErrorResponse			"Invalid request"
+//	@Failure		401		{object}	ErrorResponse			"Unauthorized"
+//	@Failure		500		{object}	ErrorResponse			"Internal server error"
+//	@Router			/users/me [put]
 func (h *Handler) UpdateProfile(c *gin.Context) {
 	userID := getUserIDFromContext(c)
 
