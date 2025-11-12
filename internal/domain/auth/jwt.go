@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -54,22 +55,18 @@ type TokenClaims struct {
 }
 
 // JWTManager handles JWT token generation and validation.
-// Uses HMAC-SHA256 for signing (HS256).
-// Future: Will integrate with HashiCorp Vault for key management (Task #22).
+// Uses HMAC-SHA256 for signing (HS256) with support for key rotation.
+// Tokens include a 'kid' (key ID) header to enable multi-key validation.
 type JWTManager struct {
-	signingKey           []byte
+	keyManager           KeyManager
 	accessTokenDuration  time.Duration
 	refreshTokenDuration time.Duration
 }
 
 // NewJWTManager creates a new JWT manager with the provided signing key and durations.
-// The signing key should be at least 32 bytes (256 bits) for HS256.
-// 
-// TODO (Task #22): Replace static signing key with Vault-sourced key
-// This will enable:
-// - Automatic key rotation
-// - Centralized secret management
-// - Audit trail for key access
+// Creates a StaticKeyManager internally for backward compatibility.
+//
+// Deprecated: Use NewJWTManagerWithKeyManager for key rotation support.
 func NewJWTManager(signingKey string, accessTokenDuration, refreshTokenDuration time.Duration) (*JWTManager, error) {
 	if signingKey == "" {
 		return nil, ErrSigningKeyEmpty
@@ -77,6 +74,31 @@ func NewJWTManager(signingKey string, accessTokenDuration, refreshTokenDuration 
 
 	if len(signingKey) < MinSigningKeyLength {
 		return nil, fmt.Errorf("%w: minimum %d bytes required", ErrSigningKeyTooShort, MinSigningKeyLength)
+	}
+
+	// Create a static key manager for backward compatibility
+	keyManager, err := NewStaticKeyManager([]byte(signingKey), "HS256")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create key manager: %w", err)
+	}
+
+	return NewJWTManagerWithKeyManager(keyManager, accessTokenDuration, refreshTokenDuration)
+}
+
+// NewJWTManagerWithKeyManager creates a new JWT manager with a KeyManager.
+// This enables key rotation and centralized key management.
+//
+// Parameters:
+//   - keyManager: Key manager for signing key retrieval and rotation
+//   - accessTokenDuration: Lifetime of access tokens (e.g., 15 minutes)
+//   - refreshTokenDuration: Lifetime of refresh tokens (e.g., 7 days)
+//
+// Returns:
+//   - *JWTManager: Configured JWT manager
+//   - error: Validation errors for durations
+func NewJWTManagerWithKeyManager(keyManager KeyManager, accessTokenDuration, refreshTokenDuration time.Duration) (*JWTManager, error) {
+	if keyManager == nil {
+		return nil, errors.New("key manager cannot be nil")
 	}
 
 	if accessTokenDuration <= 0 {
@@ -88,7 +110,7 @@ func NewJWTManager(signingKey string, accessTokenDuration, refreshTokenDuration 
 	}
 
 	return &JWTManager{
-		signingKey:           []byte(signingKey),
+		keyManager:           keyManager,
 		accessTokenDuration:  accessTokenDuration,
 		refreshTokenDuration: refreshTokenDuration,
 	}, nil
@@ -97,6 +119,8 @@ func NewJWTManager(signingKey string, accessTokenDuration, refreshTokenDuration 
 // GenerateAccessToken generates a short-lived JWT access token.
 // Access tokens include the user's email, role, and are used for API authorization.
 // Default duration: 15 minutes.
+//
+// The token includes a 'kid' (key ID) header to enable key rotation.
 func (m *JWTManager) GenerateAccessToken(userID uuid.UUID, email, role string) (string, error) {
 	if userID == uuid.Nil {
 		return "", ErrNilUserID
@@ -122,8 +146,23 @@ func (m *JWTManager) GenerateAccessToken(userID uuid.UUID, email, role string) (
 		TokenID:   uuid.New().String(),
 	}
 
+	// Get current signing key
+	ctx := context.Background()
+	keyID, err := m.keyManager.GetCurrentKeyID(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get current key ID: %w", err)
+	}
+
+	signingKey, err := m.keyManager.GetSigningKey(ctx, keyID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get signing key: %w", err)
+	}
+
+	// Create token with kid header
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signedToken, err := token.SignedString(m.signingKey)
+	token.Header["kid"] = keyID
+
+	signedToken, err := token.SignedString(signingKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign access token: %w", err)
 	}
@@ -135,6 +174,8 @@ func (m *JWTManager) GenerateAccessToken(userID uuid.UUID, email, role string) (
 // Refresh tokens don't include email and are used to obtain new access tokens.
 // Default duration: 7 days.
 // The jti (JWT ID) is stored in the database to enable revocation.
+//
+// The token includes a 'kid' (key ID) header to enable key rotation.
 func (m *JWTManager) GenerateRefreshToken(userID uuid.UUID) (string, error) {
 	if userID == uuid.Nil {
 		return "", ErrNilUserID
@@ -156,8 +197,23 @@ func (m *JWTManager) GenerateRefreshToken(userID uuid.UUID) (string, error) {
 		TokenID:   tokenID,
 	}
 
+	// Get current signing key
+	ctx := context.Background()
+	keyID, err := m.keyManager.GetCurrentKeyID(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get current key ID: %w", err)
+	}
+
+	signingKey, err := m.keyManager.GetSigningKey(ctx, keyID)
+	if err != nil {
+		return "", fmt.Errorf("failed to get signing key: %w", err)
+	}
+
+	// Create token with kid header
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signedToken, err := token.SignedString(m.signingKey)
+	token.Header["kid"] = keyID
+
+	signedToken, err := token.SignedString(signingKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign refresh token: %w", err)
 	}
@@ -207,17 +263,48 @@ func (m *JWTManager) GetTokenExpiration(tokenString string) (time.Time, error) {
 }
 
 // parseToken is a helper that parses and validates a JWT token.
+// Supports both old tokens (without kid) and new tokens (with kid) for backward compatibility.
 func (m *JWTManager) parseToken(tokenString string) (*TokenClaims, error) {
 	if tokenString == "" {
 		return nil, ErrInvalidToken
 	}
+
+	ctx := context.Background()
 
 	token, err := jwt.ParseWithClaims(tokenString, &TokenClaims{}, func(token *jwt.Token) (interface{}, error) {
 		// Verify signing method is HMAC
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("%w: unexpected signing method %v", ErrInvalidToken, token.Header["alg"])
 		}
-		return m.signingKey, nil
+
+		// Extract kid from header (if present)
+		var keyID string
+		if kid, ok := token.Header["kid"]; ok {
+			keyID, _ = kid.(string)
+		}
+
+		// Try to get the signing key
+		signingKey, err := m.keyManager.GetSigningKey(ctx, keyID)
+		if err != nil {
+			// If kid is not found, try all active keys (for backward compatibility)
+			if errors.Is(err, ErrKeyNotFound) && keyID != "" {
+				activeKeyIDs, listErr := m.keyManager.ListActiveKeyIDs(ctx)
+				if listErr != nil {
+					return nil, fmt.Errorf("failed to list active keys: %w", listErr)
+				}
+
+				// Try each active key
+				for _, activeKeyID := range activeKeyIDs {
+					key, keyErr := m.keyManager.GetSigningKey(ctx, activeKeyID)
+					if keyErr == nil {
+						return key, nil
+					}
+				}
+			}
+			return nil, fmt.Errorf("failed to get signing key: %w", err)
+		}
+
+		return signingKey, nil
 	})
 
 	if err != nil {
