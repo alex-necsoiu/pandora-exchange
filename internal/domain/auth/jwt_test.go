@@ -622,18 +622,27 @@ func TestRoleClaimSecurity(t *testing.T) {
 
 // TestVaultPlaceholder tests Vault integration placeholder.
 func TestVaultPlaceholder(t *testing.T) {
-	t.Run("JWT manager supports future Vault integration", func(t *testing.T) {
-		// This test documents that the current implementation uses
-		// a static signing key, but is designed to support Vault integration
-		// in the future (Task #22: Vault Integration)
+	t.Run("JWT manager supports Vault integration", func(t *testing.T) {
+		// This test documents that while JWTManager uses a signing key directly,
+		// production deployments use Vault to securely source the key.
+		//
+		// Vault Integration Pattern (Implemented):
+		// 1. In production, JWT_SECRET is fetched from Vault at startup
+		//    (see internal/vault/client.go and VAULT_INTEGRATION.md)
+		// 2. Config loader calls LoadSecretsFromVault() to override ENV with Vault values
+		// 3. JWTManager is initialized with the Vault-sourced key
+		// 4. Vault Agent sidecar handles secret renewal in Kubernetes
+		//
+		// This test uses a static key to avoid Vault dependency in unit tests.
+		// See internal/vault/client_integration_test.go for Vault secret loading tests.
 
 		manager, err := auth.NewJWTManager(testSigningKey, 15*time.Minute, 7*24*time.Hour)
 		require.NoError(t, err)
 		assert.NotNil(t, manager)
 
-		// TODO: In Task #22, replace static key with Vault-sourced key
-		// The JWTManager interface should remain the same
-		t.Log("Current: Static signing key")
-		t.Log("Future: Vault-sourced signing key with rotation support")
+		// The JWTManager interface remains stable regardless of key source
+		t.Log("Test: Static signing key")
+		t.Log("Production: Vault-sourced signing key with rotation support")
+		t.Log("See: VAULT_INTEGRATION.md for production Vault setup")
 	})
 }
