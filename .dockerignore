@@ -1,0 +1,76 @@
+# .dockerignore - Exclude unnecessary files from Docker build context
+# This speeds up builds and reduces image size
+
+# Git files
+.git/
+.gitignore
+.github/
+.gitattributes
+
+# Documentation
+*.md
+!README.md
+docs/
+*.txt
+!go.sum
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build artifacts
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+user-service
+*.test
+*.out
+
+# Test files and coverage
+*_test.go
+**/*_test.go
+coverage.html
+vault_coverage.html
+*.cover
+*.coverage
+testdata/
+
+# CI/CD files (already in repo, don't need in image)
+.github/
+.pre-commit-config.yaml
+.golangci.yml
+
+# Configuration files (mounted at runtime)
+configs/*.yaml
+!configs/*.example.yaml
+
+# Dependencies (will be downloaded during build)
+vendor/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.log
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Kubernetes manifests
+deployments/k8s/
+
+# Scripts (not needed in runtime)
+scripts/
+
+# Misc
+TODO
+*.bak
+*.orig
