@@ -16,12 +16,20 @@ import (
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	"github.com/alex-necsoiu/pandora-exchange/internal/repository"
 	"github.com/alex-necsoiu/pandora-exchange/internal/service"
+	grpcTransport "github.com/alex-necsoiu/pandora-exchange/internal/transport/grpc"
 	httpTransport "github.com/alex-necsoiu/pandora-exchange/internal/transport/http"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// MockServiceRegistry is a simple mock for tests
+type MockServiceRegistry struct{}
+
+func (m *MockServiceRegistry) ListServices() []*grpcTransport.ServiceInfo {
+	return []*grpcTransport.ServiceInfo{}
+}
 
 const (
 	testDatabaseURL = "postgres://pandora:pandora_dev_secret@localhost:5432/pandora_dev?sslmode=disable"
@@ -86,9 +94,12 @@ func setupIntegrationTest(t *testing.T) (*httptest.Server, *httptest.Server, *se
 	)
 	require.NoError(t, jwtErr)
 
+	// Create mock registry for admin router
+	mockRegistry := &MockServiceRegistry{}
+
 	// Setup HTTP routers
 	userRouter := httpTransport.SetupUserRouter(userService, jwtManager, auditRepo, testCfg, logger, "test", false)
-	adminRouter := httpTransport.SetupAdminRouter(userService, jwtManager, auditRepo, testCfg, logger, "test", false)
+	adminRouter := httpTransport.SetupAdminRouter(userService, jwtManager, auditRepo, testCfg, logger, "test", false, mockRegistry)
 
 	// Create test servers
 	userServer := httptest.NewServer(userRouter)

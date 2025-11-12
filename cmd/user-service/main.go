@@ -189,17 +189,6 @@ func main() {
 		logger.Info("OpenTelemetry tracing is disabled")
 	}
 
-	// Initialize HTTP routers (user-facing and admin-facing)
-	ginMode := "release"
-	if cfg.IsDevelopment() {
-		ginMode = "debug"
-	}
-
-	userRouter := httpTransport.SetupUserRouter(userService, jwtManager, auditRepo, cfg, logger, ginMode, cfg.Tracing.Enabled)
-	adminRouter := httpTransport.SetupAdminRouter(userService, jwtManager, auditRepo, cfg, logger, ginMode, cfg.Tracing.Enabled)
-
-	logger.Info("HTTP routers initialized")
-
 	// Initialize gRPC server with interceptors
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
@@ -209,11 +198,53 @@ func main() {
 		),
 	)
 
+	// Initialize ServiceRegistry with reflection enabled for dev/sandbox only
+	enableReflection := cfg.IsDevelopment() || cfg.AppEnv == config.EnvSandbox
+	registry := grpcTransport.NewServiceRegistry(grpcServer, grpcTransport.WithReflection(enableReflection))
+	
+	logger.WithField("reflection_enabled", enableReflection).Info("Service registry initialized")
+
 	// Register gRPC service
 	userGRPCService := grpcTransport.NewServer(userService, logger)
 	pb.RegisterUserServiceServer(grpcServer, userGRPCService)
 
+	// Register UserService metadata in registry
+	serviceInfo := &grpcTransport.ServiceInfo{
+		Name:        "pandora.user.v1.UserService",
+		Version:     "v1",
+		Description: "User authentication and management service",
+		Methods: []string{
+			"Register",
+			"Login",
+			"GetUser",
+			"UpdateUser",
+			"DeleteUser",
+			"RefreshToken",
+			"Logout",
+		},
+		ProtoFile: "internal/transport/grpc/proto/user_service.proto",
+		Metadata: map[string]string{
+			"service_version": "1.0.0",
+			"environment":     cfg.AppEnv,
+		},
+	}
+	
+	if err := registry.RegisterService(serviceInfo); err != nil {
+		logger.WithField("error", err.Error()).Fatal("Failed to register service in registry")
+	}
+
 	logger.Info("gRPC server initialized")
+
+	// Initialize HTTP routers (user-facing and admin-facing)
+	ginMode := "release"
+	if cfg.IsDevelopment() {
+		ginMode = "debug"
+	}
+
+	userRouter := httpTransport.SetupUserRouter(userService, jwtManager, auditRepo, cfg, logger, ginMode, cfg.Tracing.Enabled)
+	adminRouter := httpTransport.SetupAdminRouter(userService, jwtManager, auditRepo, cfg, logger, ginMode, cfg.Tracing.Enabled, registry)
+
+	logger.Info("HTTP routers initialized")
 
 	// Create HTTP servers: user-facing and admin-facing (separate ports)
 	userAddr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
@@ -290,9 +321,11 @@ func main() {
 		logger.WithField("error", err.Error()).Error("Admin server forced to shutdown")
 	}
 
-	// Gracefully stop gRPC server
-	logger.Info("Stopping gRPC server...")
-	grpcServer.GracefulStop()
+	// Gracefully stop gRPC server and service registry
+	logger.Info("Stopping gRPC server and service registry...")
+	if err := registry.Shutdown(ctx); err != nil {
+		logger.WithField("error", err.Error()).Error("Service registry forced to shutdown")
+	}
 
 	// Close event publisher and Redis connection
 	if eventPublisher != nil {

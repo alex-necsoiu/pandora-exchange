@@ -11,12 +11,26 @@ import (
 	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
 	"github.com/alex-necsoiu/pandora-exchange/internal/mocks"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
+	grpcTransport "github.com/alex-necsoiu/pandora-exchange/internal/transport/grpc"
 	httpTransport "github.com/alex-necsoiu/pandora-exchange/internal/transport/http"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
+
+// MockServiceRegistry is a mock implementation of the ServiceRegistry interface
+type MockServiceRegistry struct {
+	mock.Mock
+}
+
+func (m *MockServiceRegistry) ListServices() []*grpcTransport.ServiceInfo {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return []*grpcTransport.ServiceInfo{}
+	}
+	return args.Get(0).([]*grpcTransport.ServiceInfo)
+}
 
 // setupTestRouter is a helper function to create test dependencies
 func setupTestRouter() (*MockUserService, *auth.JWTManager, *mocks.MockAuditRepository, *config.Config, *observability.Logger) {
@@ -150,8 +164,10 @@ func TestSetupUserRouter(t *testing.T) {
 func TestSetupAdminRouter(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	mockService, jwtManager, mockAuditRepo, testCfg, logger := setupTestRouter()
+	mockRegistry := &MockServiceRegistry{}
+	mockRegistry.On("ListServices").Return([]*grpcTransport.ServiceInfo{})
 
-	router := httpTransport.SetupAdminRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false)
+	router := httpTransport.SetupAdminRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false, mockRegistry)
 
 	testCases := []struct {
 		name        string
@@ -235,9 +251,11 @@ func TestSetupAdminRouter(t *testing.T) {
 func TestRouterSeparation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	mockService, jwtManager, mockAuditRepo, testCfg, logger := setupTestRouter()
+	mockRegistry := &MockServiceRegistry{}
+	mockRegistry.On("ListServices").Return([]*grpcTransport.ServiceInfo{})
 
 	userRouter := httpTransport.SetupUserRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false)
-	adminRouter := httpTransport.SetupAdminRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false)
+	adminRouter := httpTransport.SetupAdminRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false, mockRegistry)
 
 	testCases := []struct {
 		name        string
@@ -311,8 +329,10 @@ func TestRouterSeparation(t *testing.T) {
 func TestValidateParamMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	mockService, jwtManager, mockAuditRepo, testCfg, logger := setupTestRouter()
+	mockRegistry := &MockServiceRegistry{}
+	mockRegistry.On("ListServices").Return([]*grpcTransport.ServiceInfo{})
 
-	adminRouter := httpTransport.SetupAdminRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false)
+	adminRouter := httpTransport.SetupAdminRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false, mockRegistry)
 
 	testCases := []struct {
 		name           string
@@ -371,6 +391,8 @@ func TestValidateParamMiddleware(t *testing.T) {
 func TestMiddlewareOrdering(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	mockService, jwtManager, mockAuditRepo, testCfg, logger := setupTestRouter()
+	mockRegistry := &MockServiceRegistry{}
+	mockRegistry.On("ListServices").Return([]*grpcTransport.ServiceInfo{})
 
 	testCases := []struct {
 		name        string
@@ -391,7 +413,7 @@ func TestMiddlewareOrdering(t *testing.T) {
 		{
 			name: "admin router has global middleware",
 			setupRouter: func() *gin.Engine {
-				return httpTransport.SetupAdminRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false)
+				return httpTransport.SetupAdminRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false, mockRegistry)
 			},
 			method:      "POST",
 			path:        "/admin/auth/login",
@@ -409,7 +431,7 @@ func TestMiddlewareOrdering(t *testing.T) {
 		{
 			name: "protected admin routes have auth and admin middleware",
 			setupRouter: func() *gin.Engine {
-				return httpTransport.SetupAdminRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false)
+				return httpTransport.SetupAdminRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false, mockRegistry)
 			},
 			method:      "GET",
 			path:        "/admin/users",
@@ -473,6 +495,8 @@ func TestGinModeConfiguration(t *testing.T) {
 func TestRouterReturnsNonNil(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	mockService, jwtManager, mockAuditRepo, testCfg, logger := setupTestRouter()
+	mockRegistry := &MockServiceRegistry{}
+	mockRegistry.On("ListServices").Return([]*grpcTransport.ServiceInfo{})
 
 	t.Run("user router is not nil", func(t *testing.T) {
 		router := httpTransport.SetupUserRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false)
@@ -480,7 +504,7 @@ func TestRouterReturnsNonNil(t *testing.T) {
 	})
 
 	t.Run("admin router is not nil", func(t *testing.T) {
-		router := httpTransport.SetupAdminRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false)
+		router := httpTransport.SetupAdminRouter(mockService, jwtManager, mockAuditRepo, testCfg, logger, "debug", false, mockRegistry)
 		assert.NotNil(t, router, "Admin router should not be nil")
 	})
 }

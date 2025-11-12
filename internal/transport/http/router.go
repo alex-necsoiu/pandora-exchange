@@ -7,8 +7,15 @@ import (
 	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
 	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
+	grpcTransport "github.com/alex-necsoiu/pandora-exchange/internal/transport/grpc"
 	"github.com/gin-gonic/gin"
 )
+
+// ServiceRegistry is the interface for gRPC service registry operations
+// It's defined here to avoid circular imports between http and grpc packages
+type ServiceRegistry interface {
+	ListServices() []*grpcTransport.ServiceInfo
+}
 
 // ValidateParamMiddleware returns a middleware that validates a named param against provided regex.
 func ValidateParamMiddleware(param string, re *regexp.Regexp) gin.HandlerFunc {
@@ -110,6 +117,7 @@ func SetupAdminRouter(
 	logger *observability.Logger,
 	mode string,
 	tracingEnabled bool,
+	registry ServiceRegistry,
 ) *gin.Engine {
 	if mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
@@ -136,6 +144,15 @@ func SetupAdminRouter(
 
 	adminHandler := NewAdminHandler(userService, logger)
 	adminAuthHandler := NewAdminAuthHandler(userService, logger)
+
+	// Health check for service registry (no auth required)
+	router.GET("/health/services", func(c *gin.Context) {
+		services := registry.ListServices()
+		c.JSON(200, gin.H{
+			"services": services,
+			"count":    len(services),
+		})
+	})
 
 	// Admin auth routes (NO authentication required - this is the login endpoint)
 	auth := router.Group("/admin/auth")
