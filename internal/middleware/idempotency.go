@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 )
@@ -247,8 +248,12 @@ func IdempotencyMiddleware(config IdempotencyConfig) gin.HandlerFunc {
 		}
 		
 		// Handle concurrent requests with the same idempotency key
+		// Check if store supports locking (InMemoryStore or RedisStore)
+		var lockAcquired bool
+		var lockReleaser func()
+		
 		if hasLocks {
-			// Try to acquire lock
+			// InMemoryStore locking
 			if !inMemStore.acquireLock(cacheKey) {
 				// Another request is processing, wait briefly and retry
 				config.Logger.WithFields(map[string]interface{}{
@@ -283,8 +288,51 @@ func IdempotencyMiddleware(config IdempotencyConfig) gin.HandlerFunc {
 				return
 			}
 			
-			// Ensure lock is released when done
-			defer inMemStore.releaseLock(cacheKey)
+			lockAcquired = true
+			lockReleaser = func() { inMemStore.releaseLock(cacheKey) }
+		} else if redisStore, ok := config.Store.(*RedisStore); ok {
+			// RedisStore locking (distributed)
+			if !redisStore.AcquireLock(cacheKey, 30*time.Second) {
+				// Another request is processing, wait briefly and retry
+				config.Logger.WithFields(map[string]interface{}{
+					"key": idempotencyKey,
+				}).Info("Concurrent request detected (distributed), waiting")
+				
+				// Wait for a short time and check if response is now cached
+				time.Sleep(100 * time.Millisecond)
+				
+				if cached, found := config.Store.Get(cacheKey); found {
+					config.Logger.WithFields(map[string]interface{}{
+						"key": idempotencyKey,
+					}).Info("Response became available during wait")
+					
+					for key, values := range cached.Headers {
+						for _, value := range values {
+							c.Header(key, value)
+						}
+					}
+					c.Header("X-Idempotency-Replay", "true")
+					c.Data(cached.StatusCode, c.GetHeader("Content-Type"), cached.Body)
+					c.Abort()
+					return
+				}
+				
+				// Still not available, return conflict
+				c.JSON(http.StatusConflict, gin.H{
+					"error":   "concurrent_request",
+					"message": "another request with the same idempotency key is being processed",
+				})
+				c.Abort()
+				return
+			}
+			
+			lockAcquired = true
+			lockReleaser = func() { redisStore.ReleaseLock(cacheKey) }
+		}
+		
+		// Ensure lock is released when done
+		if lockAcquired && lockReleaser != nil {
+			defer lockReleaser()
 		}
 		
 		// Wrap response writer to capture response
@@ -360,14 +408,16 @@ func isIdempotentMethod(method string) bool {
 }
 
 // IdempotencyMiddlewareWithRedis creates an idempotency middleware using Redis
-// This is a placeholder for Redis integration - implement when needed
-func IdempotencyMiddlewareWithRedis(redisClient interface{}, ttl time.Duration) gin.HandlerFunc {
-	// TODO: Implement Redis-backed store
-	// For now, fall back to in-memory
+// This provides distributed caching and locking for multi-instance deployments
+func IdempotencyMiddlewareWithRedis(redisClient *redis.Client, keyPrefix string, ttl time.Duration, logger *observability.Logger) gin.HandlerFunc {
+	redisStore := NewRedisStore(redisClient, keyPrefix)
+	
 	config := IdempotencyConfig{
-		Store: NewInMemoryStore(),
-		TTL:   ttl,
+		Store:  redisStore,
+		TTL:    ttl,
+		Logger: logger,
 	}
+	
 	return IdempotencyMiddleware(config)
 }
 
