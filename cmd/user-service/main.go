@@ -29,6 +29,14 @@ import (
 	"google.golang.org/grpc"
 )
 
+// Build information. These variables are set during build time using -ldflags.
+// Example: go build -ldflags="-X main.version=v1.2.3 -X main.commit=abc123"
+var (
+	version   = "dev"      // Semantic version (e.g., v1.0.0)
+	commit    = "unknown"  // Git commit hash
+	buildTime = "unknown"  // Build timestamp
+)
+
 func main() {
 	// Load configuration
 	cfg, err := config.Load()
@@ -158,14 +166,18 @@ func main() {
 		logger.WithField("error", err.Error()).Fatal("Failed to initialize user service")
 	}
 
-	logger.Info("User service initialized")
+	logger.WithFields(map[string]interface{}{
+		"version":    version,
+		"commit":     commit,
+		"build_time": buildTime,
+	}).Info("User service initialized")
 
 	// Initialize OpenTelemetry tracer if enabled
 	var tracerProvider *observability.TracerProvider
 	if cfg.Tracing.Enabled {
 		tracerCfg := observability.TracerConfig{
 			ServiceName:    cfg.Tracing.ServiceName,
-			ServiceVersion: "1.0.0", // TODO: Get from build info
+			ServiceVersion: version,
 			Environment:    cfg.AppEnv,
 			OTLPEndpoint:   cfg.Tracing.OTLPEndpoint,
 			Enabled:        cfg.Tracing.Enabled,
