@@ -1,0 +1,16 @@
+graph LR
+    A[Client Request] --> B[Gin Middleware]
+    B --> C[Handler]
+    C --> D[Service Layer]
+    D --> E[Repository]
+    E --> F[PostgreSQL]
+    D --> G[Redis]
+    D --> H[Event Publisher]
+    
+    B -.->|Trace ID| I[Jaeger/Grafana]
+    C -.->|Span| I
+    D -.->|Span| I
+    E -.->|Span| I
+    H -.->|Span| I
+    
+    style I fill:#FF9800

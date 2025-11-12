@@ -1,0 +1,18 @@
+graph LR
+    A[User Service] -->|user.registered| B[Redis Streams]
+    A -->|user.kyc.updated| B
+    A -->|user.profile.updated| B
+    A -->|user.logged_in| B
+    A -->|user.deleted| B
+    
+    B --> C[Wallet Service]
+    B --> D[Notification Service]
+    B --> E[Analytics Service]
+    B --> F[Compliance Service]
+    
+    style A fill:#4CAF50
+    style B fill:#F44336
+    style C fill:#2196F3
+    style D fill:#2196F3
+    style E fill:#2196F3
+    style F fill:#2196F3

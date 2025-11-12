@@ -1,398 +1,793 @@
-<div align="center"><div align="center"># 🔥 Pandora Exchange - User Service (Phase 1)
+# 🔥 Pandora Exchange - User Service (Phase 1)<div align="center"><div align="center"># 🔥 Pandora Exchange - User Service (Phase 1)
 
 
 
-# 🏦 Pandora Exchange
-
-
-
-> **High-Performance, Event-Driven Digital Asset Trading Platform**  # 🏦 Pandora Exchange> **High-performance digital asset trading platform backend**  
-
-> Enterprise-grade microservices architecture built with Go 1.21+
+> **High-performance digital asset trading platform backend**  
 
 > Status: 🚧 In Development  
 
-[![CI Pipeline](https://img.shields.io/github/actions/workflow/status/alex-necsoiu/pandora-exchange/ci.yml?branch=main&label=CI&logo=github)](https://github.com/alex-necsoiu/pandora-exchange/actions)
+> Architecture: Microservices | Event-Driven | Cloud-Native# 🏦 Pandora Exchange
 
-[![Go Version](https://img.shields.io/github/go-mod/go-version/alex-necsoiu/pandora-exchange?logo=go&color=00ADD8)](https://go.dev/)> **High-Performance, Event-Driven Digital Asset Trading Platform**  > Architecture: Microservices | Event-Driven | Cloud-Native
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-
-[![Code Coverage](https://img.shields.io/badge/coverage-85%25-brightgreen.svg)](./coverage.html)> Enterprise-grade microservices architecture built with Go 1.21+
-
-[![Documentation](https://img.shields.io/badge/docs-available-blue.svg)](./docs/)
 
 ---
 
-[**Quick Start**](#-quick-start) • [**Architecture**](#-architecture) • [**API Docs**](#-api-documentation) • [**Roadmap**](#-roadmap) • [**Contributing**](#-contributing)
 
-[![CI Pipeline](https://img.shields.io/github/actions/workflow/status/alex-necsoiu/pandora-exchange/ci.yml?branch=main&label=CI&logo=github)](https://github.com/alex-necsoiu/pandora-exchange/actions)
 
-</div>
+## 📋 Project Overview> **High-Performance, Event-Driven Digital Asset Trading Platform**  # 🏦 Pandora Exchange> **High-performance digital asset trading platform backend**  
 
-[![Go Version](https://img.shields.io/github/go-mod/go-version/alex-necsoiu/pandora-exchange?logo=go&color=00ADD8)](https://go.dev/)## 📋 Project Overview
 
----
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+Pandora Exchange is a secure, scalable, and compliant trading platform backend built with:> Enterprise-grade microservices architecture built with Go 1.21+
 
-## 📖 Table of Contents
 
-[![Code Coverage](https://img.shields.io/badge/coverage-85%25-brightgreen.svg)](./coverage.html)Pandora Exchange is a secure, scalable, and compliant trading platform backend built with:
 
-- [Overview](#-overview)
+- **Go 1.21+** - High-performance, compiled language> Status: 🚧 In Development  
 
-- [Features](#-features)[![Documentation](https://img.shields.io/badge/docs-available-blue.svg)](./docs/)
+- **Gin** - HTTP REST API framework
 
-- [Tech Stack](#-tech-stack)
+- **gRPC** - Internal service-to-service communication[![CI Pipeline](https://img.shields.io/github/actions/workflow/status/alex-necsoiu/pandora-exchange/ci.yml?branch=main&label=CI&logo=github)](https://github.com/alex-necsoiu/pandora-exchange/actions)
 
-- [Architecture](#-architecture)- **Go 1.21+** - High-performance, compiled language
+- **PostgreSQL** - Primary data store
 
-- [Project Structure](#-project-structure)
+- **sqlc** - Type-safe SQL query generation[![Go Version](https://img.shields.io/github/go-mod/go-version/alex-necsoiu/pandora-exchange?logo=go&color=00ADD8)](https://go.dev/)> **High-Performance, Event-Driven Digital Asset Trading Platform**  > Architecture: Microservices | Event-Driven | Cloud-Native
 
-- [Quick Start](#-quick-start)[**Quick Start**](#-quick-start) • [**Architecture**](#-architecture) • [**API Docs**](#-api-documentation) • [**Roadmap**](#-roadmap) • [**Contributing**](#-contributing)- **Gin** - HTTP REST API framework
+- **Redis Streams** - Event-driven async messaging
 
-- [API Documentation](#-api-documentation)
+- **OpenTelemetry** - Distributed tracing[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
+- **Argon2id** - Password hashing
+
+- **JWT** - Authentication tokens[![Code Coverage](https://img.shields.io/badge/coverage-85%25-brightgreen.svg)](./coverage.html)> Enterprise-grade microservices architecture built with Go 1.21+
+
+- **Vault** - Secrets management
+
+- **Docker & Kubernetes** - Containerization & orchestration[![Documentation](https://img.shields.io/badge/docs-available-blue.svg)](./docs/)
+
+
+
+**Phase 1 Scope:** User Service (Authentication, Registration, KYC Management)---
+
+
+
+---[**Quick Start**](#-quick-start) • [**Architecture**](#-architecture) • [**API Docs**](#-api-documentation) • [**Roadmap**](#-roadmap) • [**Contributing**](#-contributing)
+
+
+
+## 🏗️ Architecture[![CI Pipeline](https://img.shields.io/github/actions/workflow/status/alex-necsoiu/pandora-exchange/ci.yml?branch=main&label=CI&logo=github)](https://github.com/alex-necsoiu/pandora-exchange/actions)
+
+
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for complete specification.</div>
+
+
+
+### Service Structure[![Go Version](https://img.shields.io/github/go-mod/go-version/alex-necsoiu/pandora-exchange?logo=go&color=00ADD8)](https://go.dev/)## 📋 Project Overview
+
+```
+
+user-service/---
+
+├── cmd/user-service/          # Application entry point
+
+├── internal/[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
+│   ├── domain/                # Business logic & interfaces
+
+│   ├── repository/            # Data access implementations## 📖 Table of Contents
+
+│   ├── postgres/              # sqlc generated code
+
+│   ├── transport/[![Code Coverage](https://img.shields.io/badge/coverage-85%25-brightgreen.svg)](./coverage.html)Pandora Exchange is a secure, scalable, and compliant trading platform backend built with:
+
+│   │   ├── http/              # Gin REST handlers
+
+│   │   └── grpc/              # gRPC service- [Overview](#-overview)
+
+│   ├── events/                # Redis Streams publishers
+
+│   ├── config/                # Configuration management- [Features](#-features)[![Documentation](https://img.shields.io/badge/docs-available-blue.svg)](./docs/)
+
+│   ├── middleware/            # HTTP/gRPC middleware
+
+│   └── observability/         # Logging, tracing, metrics- [Tech Stack](#-tech-stack)
+
+├── migrations/                # PostgreSQL schema migrations
+
+├── deployments/- [Architecture](#-architecture)- **Go 1.21+** - High-performance, compiled language
+
+│   ├── docker/                # Dockerfiles
+
+│   └── k8s/                   # Kubernetes manifests- [Project Structure](#-project-structure)
+
+├── .github/workflows/         # CI/CD pipelines
+
+├── go.mod- [Quick Start](#-quick-start)[**Quick Start**](#-quick-start) • [**Architecture**](#-architecture) • [**API Docs**](#-api-documentation) • [**Roadmap**](#-roadmap) • [**Contributing**](#-contributing)- **Gin** - HTTP REST API framework
+
+├── Makefile
+
+└── README.md- [API Documentation](#-api-documentation)
+
+```
 
 - [Event-Driven Architecture](#-event-driven-architecture)- **gRPC** - Internal service-to-service communication
 
+---
+
 - [Security](#-security)
+
+## 📊 Development Roadmap
 
 - [Development Environments](#-development-environments)</div>- **PostgreSQL** - Primary data store
 
+### Epic: User Service MVP (Phase 1)
+
 - [Testing](#-testing)
 
-- [Metrics & Observability](#-metrics--observability)- **sqlc** - Type-safe SQL query generation
+| # | Task | Status | Branch | Commit | Files |
 
-- [Roadmap](#-roadmap)
+|---|------|--------|--------|--------|-------|- [Metrics & Observability](#-metrics--observability)- **sqlc** - Type-safe SQL query generation
 
-- [Contributing](#-contributing)---- **Redis Streams** - Event-driven async messaging
+| 1 | Bootstrap User Service Repository | ✅ Completed | `feature/bootstrap-repo` | `feat: initialize go module and folder structure` | go.mod, .gitignore, Makefile, folder structure |
 
-- [License](#-license)
+| 2 | Database Schema & Migrations | ✅ Completed | 2b3b527 | users + refresh_tokens tables with migrations | 2024-01-XX |- [Roadmap](#-roadmap)
 
-- **OpenTelemetry** - Distributed tracing
+| 3 | sqlc Configuration & Queries | ✅ Completed | 4cb0710 | 15 type-safe SQL queries generated | 2024-01-XX |
 
----
+| 4 | Domain Layer - Models & Interfaces | ✅ Completed | cb82e41 | Models, interfaces, errors, 24 passing tests | 2024-01-XX |- [Contributing](#-contributing)---- **Redis Streams** - Event-driven async messaging
 
-## 📖 Table of Contents- **Argon2id** - Password hashing
+| 5 | Repository Implementation with sqlc | ✅ Completed | a5e278d | UserRepo + RefreshTokenRepo, 16 test suites passing | 2024-01-XX |
 
-## 🌟 Overview
+| 6 | Password Hashing with Argon2id | ✅ Completed | 1debc6c | Argon2id (64MB, t=1, p=4), timing attack resistant | 2024-01-XX |- [License](#-license)
 
-- **JWT** - Authentication tokens
+| 7 | JWT Token Service | ✅ Completed | a02114b | HS256, access (15min) + refresh (7d), Vault-ready | 2024-01-XX |
 
-**Pandora Exchange** is a production-ready, cloud-native digital asset trading platform backend designed for:
+| 8 | User Service Implementation | ✅ Completed | 57449a7 | 11 methods, 10 test suites, 22 tests passing | 2024-01-XX |- **OpenTelemetry** - Distributed tracing
 
-- [Overview](#-overview)- **Vault** - Secrets management
+| 9 | Configuration Management | ✅ Completed | 37571bc | Viper config, 4 environments, 6 test suites passing | 2024-01-XX |
 
-- **🚀 Low Latency**: Optimized for high-throughput trading operations
+| 10 | Logging with Zerolog | ✅ Completed | - | Structured logging, 9 test suites, audit logs, sensitive data redaction | 2024-01-XX |---
 
-- **🔒 Enterprise Security**: Argon2id hashing, JWT auth, Vault secrets, TLS everywhere- [Features](#-features)- **Docker & Kubernetes** - Containerization & orchestration
+| 11 | OpenTelemetry Tracing Setup | ✅ Completed | - | OTLP exporter, Gin middleware, 9 test suites, Jaeger integration | 2024-11-08 |
 
-- **📊 Compliance**: Immutable audit logs, KYC/AML workflows, regulatory-ready
+| 12 | Gin HTTP Transport Layer | ✅ Completed | 76db8a0 | 11 handlers, 91.7% coverage, 483 tests passing | 2024-11-08 |## 📖 Table of Contents- **Argon2id** - Password hashing
 
-- **🎯 Scalability**: Kubernetes-native, horizontal scaling, event-driven architecture- [Tech Stack](#-tech-stack)
+| 13 | gRPC Service Definition & Implementation | ✅ Completed | a653502 | 5 RPCs, interceptors, 100% coverage, 50 tests passing | 2024-11-08 |
 
-- **🧪 Reliability**: 85%+ test coverage, TDD approach, comprehensive CI/CD
+| 14 | Redis Streams Event Publisher | ✅ Completed | - | 6 event types, 92.2% coverage, 17 tests, async publishing | 2024-11-08 |## 🌟 Overview
+
+| 15 | Middleware - Auth & Security | ✅ Completed | 76db8a0 | Auth, CORS, Recovery, Admin middleware, 100% coverage | 2024-11-08 |
+
+| 16 | Health Check Endpoints | ✅ Completed | 76db8a0 | `/health` endpoint implemented and tested | 2024-11-08 |- **JWT** - Authentication tokens
+
+| 17 | Main Application Wiring | ✅ Completed | - | Full application with user & admin routers | 2024-11-08 |
+
+| 18 | Docker & Docker Compose | ✅ Completed | - | PostgreSQL + service containers configured | 2024-11-08 |**Pandora Exchange** is a production-ready, cloud-native digital asset trading platform backend designed for:
+
+| 19 | Integration Tests | ✅ Completed | 9ac7c81 | 4 E2E test suites, real DB, full workflows | 2024-11-08 |
+
+| 20 | CI/CD Pipeline - GitHub Actions | ✅ Completed | - | GitHub Actions workflows with canary deployment, security scanning | 2024-11-10 |- [Overview](#-overview)- **Vault** - Secrets management
+
+| 21 | Kubernetes Manifests | ✅ Completed | - | 18 manifests, Kustomize overlays, complete deployment guide | 2024-11-08 |
+
+| 22 | Vault Integration | ✅ Completed | 486fcbe, 4d1dafc | Vault client (251 lines), K8s integration, comprehensive integration tests (310 lines), testing guide | 2024-11-08 |- **🚀 Low Latency**: Optimized for high-throughput trading operations
+
+| 23 | Enhanced Audit Logging | ✅ Completed | bcc0612, ee13c3c | Audit logs table, repository (16 tests), cleanup job (9 tests), middleware (15 tests) | 2024-11-08 |
+
+| 24 | Error Handling System | ✅ Completed | 6ce3c76, dee6c4c | AppError struct, HTTP/gRPC middleware, 35 tests, comprehensive docs | 2024-11-08 |- **🔒 Enterprise Security**: Argon2id hashing, JWT auth, Vault secrets, TLS everywhere- [Features](#-features)- **Docker & Kubernetes** - Containerization & orchestration
+
+| 25 | Dockerfile Optimization | ✅ Completed | - | Multi-stage build, distroless base, 45MB final image | 2024-11-10 |
+
+| 26 | OpenAPI/Swagger Documentation | ✅ Completed | - | Complete API documentation with Swagger UI | 2024-11-12 |- **📊 Compliance**: Immutable audit logs, KYC/AML workflows, regulatory-ready
+
+| 27 | Rate Limiting Middleware | ✅ Completed | d011893 | Redis-backed rate limiting, 9 test suites, per-IP and per-user limits | 2024-11-12 |
+
+| 28 | Documentation & README | 🔵 In Progress | - | K8s deployment guide complete, main README updates pending | 2024-11-12 |- **🎯 Scalability**: Kubernetes-native, horizontal scaling, event-driven architecture- [Tech Stack](#-tech-stack)
+
+
+
+**Legend:**  - **🧪 Reliability**: 85%+ test coverage, TDD approach, comprehensive CI/CD
+
+⚪ Not Started | 🔵 In Progress | ✅ Completed | 🔴 Blocked
 
 - [Architecture](#-architecture)**Phase 1 Scope:** User Service (Authentication, Registration, KYC Management)
 
+---
+
 **Current Status:** Phase 1 (User Service) - Production Ready 🎉
+
+## 🚀 Quick Start
 
 - [Project Structure](#-project-structure)
 
----
+### Prerequisites
 
-- [Quick Start](#-quick-start)---
+- Go 1.21+---
 
-## 🚀 Features
+- Docker & Docker Compose
 
-- [API Documentation](#-api-documentation)
+- PostgreSQL 15+- [Quick Start](#-quick-start)---
 
-<table>
+- Redis 7+
 
-  <tr>- [Event-Driven Architecture](#-event-driven-architecture)## 🏗️ Architecture
+- Make## 🚀 Features
+
+
+
+### Local Development- [API Documentation](#-api-documentation)
+
+
+
+```bash<table>
+
+# 1. Clone repository
+
+git clone https://github.com/alex-necsoiu/pandora-exchange.git  <tr>- [Event-Driven Architecture](#-event-driven-architecture)## 🏗️ Architecture
+
+cd pandora-exchange
 
     <td>
 
-- [Security](#-security)
+# 2. Start development environment
 
-### 🔐 Authentication & Authorization
+make dev-up- [Security](#-security)
+
+
+
+# 3. Run migrations### 🔐 Authentication & Authorization
+
+make migrate
 
 - ✅ User registration with email verification- [Development Environments](#-development-environments)See [ARCHITECTURE.md](./ARCHITECTURE.md) for complete specification.
 
-- ✅ Secure login with Argon2id password hashing
+# 4. Generate sqlc code
 
-- ✅ JWT-based authentication (access + refresh tokens)- [Testing](#-testing)
+make sqlc- ✅ Secure login with Argon2id password hashing
+
+
+
+# 5. Run tests- ✅ JWT-based authentication (access + refresh tokens)- [Testing](#-testing)
+
+make test
 
 - ✅ Role-based access control (User/Admin)
 
-- ✅ Session management & device tracking- [Metrics & Observability](#-metrics--observability)### Service Structure
+# 6. Start service
+
+make run- ✅ Session management & device tracking- [Metrics & Observability](#-metrics--observability)### Service Structure
+
+```
 
 
+
+### Available Make Targets
 
     </td>- [Roadmap](#-roadmap)```
 
-    <td>
+```bash
 
-- [Contributing](#-contributing)user-service/
+make dev-up        # Start PostgreSQL + Redis in Docker    <td>
 
-### 👤 User Management
+make dev-down      # Stop development environment
 
-- ✅ Profile management (CRUD operations)- [License](#-license)├── cmd/user-service/          # Application entry point
+make migrate       # Run database migrations- [Contributing](#-contributing)user-service/
 
-- ✅ KYC status tracking & updates
+make sqlc          # Generate sqlc code from SQL queries
 
-- ✅ Soft delete with audit trail├── internal/
+make test          # Run all tests### 👤 User Management
+
+make test-coverage # Run tests with coverage report
+
+make lint          # Run golangci-lint- ✅ Profile management (CRUD operations)- [License](#-license)├── cmd/user-service/          # Application entry point
+
+make build         # Build service binary
+
+make run           # Run service locally- ✅ KYC status tracking & updates
+
+make docker-build  # Build Docker image
+
+make clean         # Clean build artifacts- ✅ Soft delete with audit trail├── internal/
+
+```
 
 - ✅ Admin user operations
 
+---
+
 - ✅ User search & pagination---│   ├── domain/                # Business logic & interfaces
 
-
-
-    </td>│   ├── repository/            # Data access implementations
-
-  </tr>
-
-  <tr>## 🌟 Overview│   ├── postgres/              # sqlc generated code
-
-    <td>
-
-│   ├── transport/
-
-### 📡 API Interfaces
-
-- ✅ RESTful API (Gin framework)**Pandora Exchange** is a production-ready, cloud-native digital asset trading platform backend designed for:│   │   ├── http/              # Gin REST handlers
-
-- ✅ gRPC for internal services
-
-- ✅ OpenAPI/Swagger documentation│   │   └── grpc/              # gRPC service
-
-- ✅ Rate limiting & throttling
-
-- ✅ CORS & security headers- **🚀 Low Latency**: Optimized for high-throughput trading operations│   ├── events/                # Redis Streams publishers
+## 🔐 Security
 
 
 
-    </td>- **🔒 Enterprise Security**: Argon2id hashing, JWT auth, Vault secrets, TLS everywhere│   ├── config/                # Configuration management
+- **Password Hashing:** Argon2id (time=1, memory=64MB, threads=4)
 
-    <td>
+- **Authentication:** JWT access tokens (15min) + refresh tokens (7 days)    </td>│   ├── repository/            # Data access implementations
 
-- **📊 Compliance**: Immutable audit logs, KYC/AML workflows, regulatory-ready│   ├── middleware/            # HTTP/gRPC middleware
+- **Secrets Management:** HashiCorp Vault (no credentials in code/env)
 
-### 🔄 Event-Driven Architecture
+- **TLS:** Required for all external communication  </tr>
 
-- ✅ Redis Streams for async messaging- **🎯 Scalability**: Kubernetes-native, horizontal scaling, event-driven architecture│   └── observability/         # Logging, tracing, metrics
+- **Audit Logging:** Immutable logs for compliance
 
-- ✅ Domain event publishing
-
-- ✅ Event-driven workflows- **🧪 Reliability**: 85%+ test coverage, TDD approach, comprehensive CI/CD├── migrations/                # PostgreSQL schema migrations
-
-- ✅ Microservices communication
-
-- ✅ Future Kafka migration support├── deployments/
+- **Rate Limiting:** Redis-backed sliding window algorithm (100 req/min per IP, 60 req/min per user)  <tr>## 🌟 Overview│   ├── postgres/              # sqlc generated code
 
 
+
+---    <td>
+
+
+
+## 📡 API Endpoints│   ├── transport/
+
+
+
+### REST API (Gin)### 📡 API Interfaces
+
+
+
+| Method | Endpoint | Description | Auth |- ✅ RESTful API (Gin framework)**Pandora Exchange** is a production-ready, cloud-native digital asset trading platform backend designed for:│   │   ├── http/              # Gin REST handlers
+
+|--------|----------|-------------|------|
+
+| POST | `/api/v1/auth/register` | Register new user | No |- ✅ gRPC for internal services
+
+| POST | `/api/v1/auth/login` | Login user | No |
+
+| POST | `/api/v1/auth/refresh` | Refresh access token | Refresh Token |- ✅ OpenAPI/Swagger documentation│   │   └── grpc/              # gRPC service
+
+| GET | `/api/v1/users/me` | Get current user | JWT |
+
+| PATCH | `/api/v1/users/me` | Update user profile | JWT |- ✅ Rate limiting & throttling
+
+| GET | `/health` | Health check | No |
+
+| GET | `/ready` | Readiness check | No |- ✅ CORS & security headers- **🚀 Low Latency**: Optimized for high-throughput trading operations│   ├── events/                # Redis Streams publishers
+
+
+
+**Swagger UI:** `http://localhost:8080/swagger/index.html`
+
+
+
+### gRPC (Internal Service-to-Service)    </td>- **🔒 Enterprise Security**: Argon2id hashing, JWT auth, Vault secrets, TLS everywhere│   ├── config/                # Configuration management
+
+
+
+**Port:** 9090 (configurable via `GRPC_PORT`)    <td>
+
+
+
+```protobuf- **📊 Compliance**: Immutable audit logs, KYC/AML workflows, regulatory-ready│   ├── middleware/            # HTTP/gRPC middleware
+
+service UserService {
+
+  // User retrieval### 🔄 Event-Driven Architecture
+
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+
+  rpc GetUserByEmail(GetUserByEmailRequest) returns (GetUserResponse);- ✅ Redis Streams for async messaging- **🎯 Scalability**: Kubernetes-native, horizontal scaling, event-driven architecture│   └── observability/         # Logging, tracing, metrics
+
+  
+
+  // KYC management- ✅ Domain event publishing
+
+  rpc UpdateKYCStatus(UpdateKYCRequest) returns (UpdateKYCResponse);
+
+  - ✅ Event-driven workflows- **🧪 Reliability**: 85%+ test coverage, TDD approach, comprehensive CI/CD├── migrations/                # PostgreSQL schema migrations
+
+  // User validation
+
+  rpc ValidateUser(ValidateUserRequest) returns (ValidateUserResponse);- ✅ Microservices communication
+
+  
+
+  // Admin operations- ✅ Future Kafka migration support├── deployments/
+
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+
+}
+
+```
 
     </td>**Current Status:** Phase 1 (User Service) - Production Ready 🎉│   ├── docker/                # Dockerfiles
 
-  </tr>
+**Interceptors:**
 
-  <tr>│   └── k8s/                   # Kubernetes manifests
+- Recovery: Panic recovery with error logging  </tr>
+
+- Logging: Request/response logging with duration
+
+- Tracing: OpenTelemetry span creation  <tr>│   └── k8s/                   # Kubernetes manifests
+
+- Auth: JWT validation (planned)
 
     <td>
+
+**Testing:** 50 test suites with table-driven tests, 100% coverage
 
 ---├── .github/workflows/         # CI/CD pipelines
 
+---
+
 ### 📊 Observability
+
+## 📡 Event-Driven Architecture (Redis Streams)
 
 - ✅ OpenTelemetry distributed tracing├── go.mod
 
+The service publishes domain events to Redis Streams for async processing by other microservices.
+
 - ✅ Structured logging (Zerolog)
+
+### Event Types
 
 - ✅ Prometheus metrics## 🚀 Features├── Makefile
 
-- ✅ Health & readiness checks
+| Event Type | Trigger | Payload |
 
-- ✅ Audit log retention policies└── README.md
+|------------|---------|---------|- ✅ Health & readiness checks
 
+| `user.registered` | New user registration | email, first_name, last_name, role |
 
+| `user.kyc.updated` | KYC status change | email, kyc_status, old_status |- ✅ Audit log retention policies└── README.md
 
-    </td><table>```
+| `user.profile.updated` | Profile update | email, first_name, last_name |
 
-    <td>
+| `user.deleted` | Account deletion | deleted_at |
 
-  <tr>
+| `user.logged_in` | Successful login | email, ip_address, user_agent |
 
-### 🛡️ Security & Compliance
-
-- ✅ Argon2id password hashing (64MB, t=1, p=4)    <td>---
-
-- ✅ HashiCorp Vault secrets management
-
-- ✅ Immutable audit logs (7-year retention)
-
-- ✅ TLS/HTTPS enforcement
-
-- ✅ Sensitive data redaction### 🔐 Authentication & Authorization## 📊 Development Roadmap
+| `user.password.changed` | Password change | email (planned) |    </td><table>```
 
 
 
-    </td>- ✅ User registration with email verification
-
-  </tr>
-
-</table>- ✅ Secure login with Argon2id password hashing### Epic: User Service MVP (Phase 1)
+### Event Structure    <td>
 
 
 
----- ✅ JWT-based authentication (access + refresh tokens)
+```json  <tr>
+
+{
+
+  "id": "uuid-v4",### 🛡️ Security & Compliance
+
+  "type": "user.registered",
+
+  "timestamp": "2024-11-08T10:30:00Z",- ✅ Argon2id password hashing (64MB, t=1, p=4)    <td>---
+
+  "user_id": "user-uuid",
+
+  "payload": {- ✅ HashiCorp Vault secrets management
+
+    "email": "user@example.com",
+
+    "first_name": "John",- ✅ Immutable audit logs (7-year retention)
+
+    "last_name": "Doe"
+
+  },- ✅ TLS/HTTPS enforcement
+
+  "metadata": {
+
+    "ip_address": "192.168.1.1",- ✅ Sensitive data redaction### 🔐 Authentication & Authorization## 📊 Development Roadmap
+
+    "user_agent": "Mozilla/5.0..."
+
+  }
+
+}
+
+```    </td>- ✅ User registration with email verification
 
 
 
-## 🧩 Tech Stack- ✅ Role-based access control (User/Admin)| # | Task | Status | Branch | Commit | Files |
+**Stream:** `user-service:events`    </tr>
+
+**Max Length:** 10,000 events (auto-trimmed)  
+
+**Testing:** 17 test suites, 92.2% coverage</table>- ✅ Secure login with Argon2id password hashing### Epic: User Service MVP (Phase 1)
 
 
+
+---
+
+
+
+## 🌍 Environments---- ✅ JWT-based authentication (access + refresh tokens)
+
+
+
+| Environment | Purpose | Database | Config |
+
+|-------------|---------|----------|--------|
+
+| `dev` | Local development | Local PostgreSQL | `.env.dev` |## 🧩 Tech Stack- ✅ Role-based access control (User/Admin)| # | Task | Status | Branch | Commit | Files |
+
+| `sandbox` | QA/Testing | Cloud DB (synthetic data) | `.env.sandbox` |
+
+| `audit` | Compliance testing | Anonymized prod clone | `.env.audit` |
+
+| `prod` | Production | Secure cloud DB | Vault secrets |
 
 <div align="center">- ✅ Session management & device tracking|---|------|--------|--------|--------|-------|
 
+Set environment: `export APP_ENV=dev`
 
+
+
+---
 
 ### Core Technologies| 1 | Bootstrap User Service Repository | ✅ Completed | `feature/bootstrap-repo` | `feat: initialize go module and folder structure` | go.mod, .gitignore, Makefile, folder structure |
 
+## 🧪 Testing Strategy
 
 
-[![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)    </td>| 2 | Database Schema & Migrations | ✅ Completed | 2b3b527 | users + refresh_tokens tables with migrations | 2024-01-XX |
 
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+- **Unit Tests:** All domain logic with table-driven tests
+
+- **Integration Tests:** Full service tests with real Vault dev server[![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)    </td>| 2 | Database Schema & Migrations | ✅ Completed | 2b3b527 | users + refresh_tokens tables with migrations | 2024-01-XX |
+
+- **TDD Approach:** Tests written BEFORE implementation
+
+- **Coverage Target:** >85% code coverage[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-336791?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+
+- **Mock Generation:** Using mockgen for interfaces
 
 [![Redis](https://img.shields.io/badge/Redis-7+-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io/)    <td>| 3 | sqlc Configuration & Queries | ✅ Completed | 4cb0710 | 15 type-safe SQL queries generated | 2024-01-XX |
 
-[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+```bash
+
+# Run unit tests[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
+
+go test ./internal/... -v
 
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)](https://kubernetes.io/)| 4 | Domain Layer - Models & Interfaces | ✅ Completed | cb82e41 | Models, interfaces, errors, 24 passing tests | 2024-01-XX |
 
+# Run with coverage
 
+go test ./internal/... -cover -coverprofile=coverage.out
+
+go tool cover -html=coverage.out
 
 </div>### 👤 User Management| 5 | Repository Implementation with sqlc | ✅ Completed | a5e278d | UserRepo + RefreshTokenRepo, 16 test suites passing | 2024-01-XX |
 
+# Run integration tests
+
+go test ./tests/integration/... -v
 
 
-| Category | Technologies |- ✅ Profile management (CRUD operations)| 6 | Password Hashing with Argon2id | ✅ Completed | 1debc6c | Argon2id (64MB, t=1, p=4), timing attack resistant | 2024-01-XX |
 
-|----------|-------------|
+# Run Vault integration tests (requires vault binary)| Category | Technologies |- ✅ Profile management (CRUD operations)| 6 | Password Hashing with Argon2id | ✅ Completed | 1debc6c | Argon2id (64MB, t=1, p=4), timing attack resistant | 2024-01-XX |
 
-| **Language** | Go 1.21+ |- ✅ KYC status tracking & updates| 7 | JWT Token Service | ✅ Completed | a02114b | HS256, access (15min) + refresh (7d), Vault-ready | 2024-01-XX |
+VAULT_INTEGRATION_TESTS=true go test ./internal/vault/... -v
 
-| **Web Framework** | Gin (REST), gRPC (internal RPC) |
+```|----------|-------------|
 
-| **Database** | PostgreSQL 15+ (primary), Redis 7+ (cache + streams) |- ✅ Soft delete with audit trail| 8 | User Service Implementation | ✅ Completed | 57449a7 | 11 methods, 10 test suites, 22 tests passing | 2024-01-XX |
 
-| **Data Access** | sqlc (type-safe SQL code generation) |
 
-| **Authentication** | JWT, Argon2id, go-jwt/v5 |- ✅ Admin user operations| 9 | Configuration Management | ✅ Completed | 37571bc | Viper config, 4 environments, 6 test suites passing | 2024-01-XX |
+**Current Coverage:**| **Language** | Go 1.21+ |- ✅ KYC status tracking & updates| 7 | JWT Token Service | ✅ Completed | a02114b | HS256, access (15min) + refresh (7d), Vault-ready | 2024-01-XX |
 
-| **Messaging** | Redis Streams (Kafka-compatible interface) |
+- Domain: 96.2%
 
-| **Secrets** | HashiCorp Vault |- ✅ User search & pagination| 10 | Logging with Zerolog | ✅ Completed | - | Structured logging, 9 test suites, audit logs, sensitive data redaction | 2024-01-XX |
+- Service: 94.7%| **Web Framework** | Gin (REST), gRPC (internal RPC) |
+
+- Repository: 91.3%
+
+- HTTP Handlers: 91.7%| **Database** | PostgreSQL 15+ (primary), Redis 7+ (cache + streams) |- ✅ Soft delete with audit trail| 8 | User Service Implementation | ✅ Completed | 57449a7 | 11 methods, 10 test suites, 22 tests passing | 2024-01-XX |
+
+- gRPC Handlers: 100%
+
+- Middleware: 89.4%| **Data Access** | sqlc (type-safe SQL code generation) |
+
+- Events: 92.2%
+
+- Vault: 77.3%| **Authentication** | JWT, Argon2id, go-jwt/v5 |- ✅ Admin user operations| 9 | Configuration Management | ✅ Completed | 37571bc | Viper config, 4 environments, 6 test suites passing | 2024-01-XX |
+
+
+
+**Vault Testing:**| **Messaging** | Redis Streams (Kafka-compatible interface) |
+
+- Unit tests: PASS (3 tests, 4.6s) - run by default
+
+- Integration tests: 6 suites, 15+ scenarios - opt-in with `VAULT_INTEGRATION_TESTS=true`| **Secrets** | HashiCorp Vault |- ✅ User search & pagination| 10 | Logging with Zerolog | ✅ Completed | - | Structured logging, 9 test suites, audit logs, sensitive data redaction | 2024-01-XX |
+
+- See [internal/vault/TESTING.md](internal/vault/TESTING.md) for detailed guide
 
 | **Observability** | OpenTelemetry, Zerolog, Prometheus |
 
+---
+
 | **Configuration** | Viper (YAML + env vars) || 11 | OpenTelemetry Tracing Setup | ✅ Completed | - | OTLP exporter, Gin middleware, 9 test suites, Jaeger integration | 2024-11-08 |
+
+## 📦 Database Schema
 
 | **Containers** | Docker, Docker Compose |
 
-| **Orchestration** | Kubernetes, Kustomize |    </td>| 12 | Gin HTTP Transport Layer | ✅ Completed | 76db8a0 | 11 handlers, 91.7% coverage, 483 tests passing | 2024-11-08 |
+### Users Table
 
-| **CI/CD** | GitHub Actions (canary deployment, security scanning) |
+```sql| **Orchestration** | Kubernetes, Kustomize |    </td>| 12 | Gin HTTP Transport Layer | ✅ Completed | 76db8a0 | 11 handlers, 91.7% coverage, 483 tests passing | 2024-11-08 |
 
-| **Testing** | testify, mockgen, table-driven tests |  </tr>| 13 | gRPC Service Definition & Implementation | ✅ Completed | a653502 | 5 RPCs, interceptors, 100% coverage, 50 tests passing | 2024-11-08 |
+CREATE TABLE users (
+
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),| **CI/CD** | GitHub Actions (canary deployment, security scanning) |
+
+    email TEXT UNIQUE NOT NULL,
+
+    first_name TEXT,| **Testing** | testify, mockgen, table-driven tests |  </tr>| 13 | gRPC Service Definition & Implementation | ✅ Completed | a653502 | 5 RPCs, interceptors, 100% coverage, 50 tests passing | 2024-11-08 |
+
+    last_name TEXT,
+
+    hashed_password TEXT NOT NULL,
+
+    role TEXT NOT NULL DEFAULT 'user',
+
+    kyc_status TEXT NOT NULL DEFAULT 'pending',---  <tr>| 14 | Redis Streams Event Publisher | ✅ Completed | - | 6 event types, 92.2% coverage, 17 tests, async publishing | 2024-11-08 |
+
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+    deleted_at TIMESTAMP
+
+);## 🧱 Architecture    <td>| 15 | Middleware - Auth & Security | ✅ Completed | 76db8a0 | Auth, CORS, Recovery, Admin middleware, 100% coverage | 2024-11-08 |
+
+```
 
 
 
----  <tr>| 14 | Redis Streams Event Publisher | ✅ Completed | - | 6 event types, 92.2% coverage, 17 tests, async publishing | 2024-11-08 |
+### Refresh Tokens Table
 
+```sqlPandora Exchange follows **Clean Architecture** principles with strict domain separation:| 16 | Health Check Endpoints | ✅ Completed | 76db8a0 | `/health` endpoint implemented and tested | 2024-11-08 |
 
+CREATE TABLE refresh_tokens (
 
-## 🧱 Architecture    <td>| 15 | Middleware - Auth & Security | ✅ Completed | 76db8a0 | Auth, CORS, Recovery, Admin middleware, 100% coverage | 2024-11-08 |
+    token TEXT PRIMARY KEY,
 
+    user_id UUID NOT NULL REFERENCES users(id),
 
+    expires_at TIMESTAMP NOT NULL,```mermaid### 📡 API Interfaces| 17 | Main Application Wiring | ✅ Completed | - | Full application with user & admin routers | 2024-11-08 |
 
-Pandora Exchange follows **Clean Architecture** principles with strict domain separation:| 16 | Health Check Endpoints | ✅ Completed | 76db8a0 | `/health` endpoint implemented and tested | 2024-11-08 |
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
 
+);graph TB
 
-
-```mermaid### 📡 API Interfaces| 17 | Main Application Wiring | ✅ Completed | - | Full application with user & admin routers | 2024-11-08 |
-
-graph TB
+```
 
     subgraph "External Clients"- ✅ RESTful API (Gin framework)| 18 | Docker & Docker Compose | ✅ Completed | - | PostgreSQL + service containers configured | 2024-11-08 |
 
-        A[Web App] --> B[REST API - Gin]
+### Audit Logs Table
 
-        C[Mobile App] --> B- ✅ gRPC for internal services| 19 | Integration Tests | ✅ Completed | 9ac7c81 | 4 E2E test suites, real DB, full workflows | 2024-11-08 |
+```sql        A[Web App] --> B[REST API - Gin]
 
-        D[Admin Portal] --> B
+CREATE TABLE audit_logs (
 
-    end- ✅ OpenAPI/Swagger documentation| 20 | CI/CD Pipeline - GitHub Actions | ⚪ Not Started | - | - | - |
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),        C[Mobile App] --> B- ✅ gRPC for internal services| 19 | Integration Tests | ✅ Completed | 9ac7c81 | 4 E2E test suites, real DB, full workflows | 2024-11-08 |
 
-    
+    user_id UUID REFERENCES users(id),
 
-    subgraph "User Service"- ✅ Rate limiting & throttling| 21 | Kubernetes Manifests | ✅ Completed | - | 18 manifests, Kustomize overlays, complete deployment guide | 2024-11-08 |
+    action TEXT NOT NULL,        D[Admin Portal] --> B
+
+    resource TEXT NOT NULL,
+
+    details JSONB,    end- ✅ OpenAPI/Swagger documentation| 20 | CI/CD Pipeline - GitHub Actions | ⚪ Not Started | - | - | - |
+
+    ip_address TEXT,
+
+    user_agent TEXT,    
+
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+
+);    subgraph "User Service"- ✅ Rate limiting & throttling| 21 | Kubernetes Manifests | ✅ Completed | - | 18 manifests, Kustomize overlays, complete deployment guide | 2024-11-08 |
+
+```
 
         B --> E[HTTP Handlers]
 
+---
+
         F[gRPC Service] --> G[Service Layer]- ✅ CORS & security headers| 22 | Vault Integration | ✅ Completed | 486fcbe, 4d1dafc | Vault client (251 lines), K8s integration, comprehensive integration tests (310 lines), testing guide | 2024-11-08 |
+
+## 🐛 Troubleshooting
 
         E --> G
 
+### Common Issues
+
         G --> H[Domain Logic]| 23 | Enhanced Audit Logging | ✅ Completed | bcc0612, ee13c3c | Audit logs table, repository (16 tests), cleanup job (9 tests), middleware (15 tests) | 2024-11-08 |
 
-        H --> I[Repository Interface]
+**Issue:** `sqlc: command not found`  
 
-        I --> J[PostgreSQL - sqlc]    </td>| 15 | Error Handling System | ✅ Completed | 6ce3c76, dee6c4c | AppError struct, HTTP/gRPC middleware, 35 tests, comprehensive docs | 2024-11-08 |
+**Solution:** Install sqlc: `go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest`        H --> I[Repository Interface]
+
+
+
+**Issue:** Database connection refused          I --> J[PostgreSQL - sqlc]    </td>| 15 | Error Handling System | ✅ Completed | 6ce3c76, dee6c4c | AppError struct, HTTP/gRPC middleware, 35 tests, comprehensive docs | 2024-11-08 |
+
+**Solution:** Ensure PostgreSQL is running: `make dev-up`
 
         I --> K[Redis Cache]
 
-        H --> L[Event Publisher]    <td>| 24 | Documentation & README | 🔵 In Progress | - | K8s deployment guide complete, main README updates pending | 2024-11-08 |
+**Issue:** Migration fails  
 
-        L --> M[Redis Streams]
+**Solution:** Check migration files and ensure DB is accessible        H --> L[Event Publisher]    <td>| 24 | Documentation & README | 🔵 In Progress | - | K8s deployment guide complete, main README updates pending | 2024-11-08 |
 
-    end
 
-    
 
-    subgraph "Infrastructure"### 🔄 Event-Driven Architecture**Legend:**  
+---        L --> M[Redis Streams]
 
-        J --> N[(PostgreSQL)]
 
-        K --> O[(Redis)]- ✅ Redis Streams for async messaging⚪ Not Started | 🔵 In Progress | ✅ Completed | 🔴 Blocked
 
-        M --> O
+## 📚 References    end
+
+
+
+- [ARCHITECTURE.md](./ARCHITECTURE.md) - Complete architecture specification    
+
+- [VAULT_INTEGRATION.md](./VAULT_INTEGRATION.md) - HashiCorp Vault setup and usage guide
+
+- [internal/vault/TESTING.md](./internal/vault/TESTING.md) - Vault integration testing guide    subgraph "Infrastructure"### 🔄 Event-Driven Architecture**Legend:**  
+
+- [ERROR_HANDLING.md](./ERROR_HANDLING.md) - Error handling patterns and middleware
+
+- [AUDIT_RETENTION_POLICY.md](./AUDIT_RETENTION_POLICY.md) - Audit log retention and cleanup        J --> N[(PostgreSQL)]
+
+- [Go 1.21 Documentation](https://go.dev/doc/)
+
+- [sqlc Documentation](https://docs.sqlc.dev/)        K --> O[(Redis)]- ✅ Redis Streams for async messaging⚪ Not Started | 🔵 In Progress | ✅ Completed | 🔴 Blocked
+
+- [Gin Framework](https://gin-gonic.com/docs/)
+
+- [OpenTelemetry Go](https://opentelemetry.io/docs/instrumentation/go/)        M --> O
+
+- [HashiCorp Vault](https://www.vaultproject.io/docs)
 
         P[Vault] --> G- ✅ Domain event publishing
 
+---
+
         Q[OpenTelemetry] --> R[Jaeger/Grafana]
+
+## 👥 Contributing
 
     end- ✅ Event-driven workflows---
 
-    
+1. Read [ARCHITECTURE.md](./ARCHITECTURE.md) - **mandatory**
 
-    subgraph "Other Microservices"- ✅ Microservices communication
+2. Follow TDD: Write tests first    
 
-        M --> S[Wallet Service]
+3. Use conventional commits: `feat:`, `fix:`, `test:`, `ci:`
 
-        M --> T[Trading Engine]- ✅ Future Kafka migration support## 🚀 Quick Start
+4. Ensure all tests pass: `make test`    subgraph "Other Microservices"- ✅ Microservices communication
 
-        M --> U[Notification Service]
+5. Run linter: `make lint`
 
-        S -.->|gRPC| F
+6. Update task table in this README        M --> S[Wallet Service]
 
-        T -.->|gRPC| F
 
-    end    </td>### Prerequisites
 
-    
+---        M --> T[Trading Engine]- ✅ Future Kafka migration support## 🚀 Quick Start
+
+
+
+## 📄 License        M --> U[Notification Service]
+
+
+
+MIT License - see [LICENSE](./LICENSE) for details        S -.->|gRPC| F
+
+
+
+---        T -.->|gRPC| F
+
+
+
+**Last Updated:** November 12, 2025      end    </td>### Prerequisites
+
+**Current Phase:** Production Readiness (Phase 1 Complete - Tasks 1-27 done)  
+
+**Next Priority:** Test Coverage Improvement, Grafana Dashboards, Performance Benchmarks    
+
 
     style B fill:#4CAF50  </tr>- Go 1.21+
 
