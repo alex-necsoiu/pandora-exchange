@@ -13,7 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/alex-necsoiu/pandora-exchange/pkg/logger"
+	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 )
 
 const (
@@ -151,6 +151,9 @@ type IdempotencyConfig struct {
 	// KeyGenerator is an optional custom key generation function
 	// If nil, the default generator is used
 	KeyGenerator func(c *gin.Context, idempotencyKey string) string
+	
+	// Logger is used for logging idempotency operations
+	Logger *observability.Logger
 }
 
 // responseWriter is a custom response writer that captures the response
@@ -183,6 +186,9 @@ func IdempotencyMiddleware(config IdempotencyConfig) gin.HandlerFunc {
 	if config.KeyGenerator == nil {
 		config.KeyGenerator = defaultKeyGenerator
 	}
+	if config.Logger == nil {
+		panic("idempotency middleware requires a logger")
+	}
 	
 	// Type assertion to access lock methods (if using InMemoryStore)
 	inMemStore, hasLocks := config.Store.(*InMemoryStore)
@@ -199,10 +205,9 @@ func IdempotencyMiddleware(config IdempotencyConfig) gin.HandlerFunc {
 		
 		// Validate idempotency key
 		if len(idempotencyKey) > MaxIdempotencyKeyLength {
-			log := logger.WithTrace(c.Request.Context(), logger.GetLogger())
-			log.Warn().
-				Str("key", idempotencyKey[:50]+"...").
-				Msg("Idempotency key too long")
+			config.Logger.WithFields(map[string]interface{}{
+				"key_length": len(idempotencyKey),
+			}).Warn("Idempotency key too long")
 			
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error":   "invalid_idempotency_key",
@@ -221,15 +226,13 @@ func IdempotencyMiddleware(config IdempotencyConfig) gin.HandlerFunc {
 		// Generate cache key
 		cacheKey := config.KeyGenerator(c, idempotencyKey)
 		
-		log := logger.WithTrace(c.Request.Context(), logger.GetLogger())
-		
 		// Check if response is cached
 		if cached, found := config.Store.Get(cacheKey); found {
-			log.Info().
-				Str("key", idempotencyKey).
-				Str("method", c.Request.Method).
-				Str("path", c.Request.URL.Path).
-				Msg("Returning cached idempotent response")
+			config.Logger.WithFields(map[string]interface{}{
+				"key":    idempotencyKey,
+				"method": c.Request.Method,
+				"path":   c.Request.URL.Path,
+			}).Info("Returning cached idempotent response")
 			
 			// Replay cached response
 			for key, values := range cached.Headers {
@@ -248,17 +251,17 @@ func IdempotencyMiddleware(config IdempotencyConfig) gin.HandlerFunc {
 			// Try to acquire lock
 			if !inMemStore.acquireLock(cacheKey) {
 				// Another request is processing, wait briefly and retry
-				log.Info().
-					Str("key", idempotencyKey).
-					Msg("Concurrent request detected, waiting")
+				config.Logger.WithFields(map[string]interface{}{
+					"key": idempotencyKey,
+				}).Info("Concurrent request detected, waiting")
 				
 				// Wait for a short time and check if response is now cached
 				time.Sleep(100 * time.Millisecond)
 				
 				if cached, found := config.Store.Get(cacheKey); found {
-					log.Info().
-						Str("key", idempotencyKey).
-						Msg("Response became available during wait")
+					config.Logger.WithFields(map[string]interface{}{
+						"key": idempotencyKey,
+					}).Info("Response became available during wait")
 					
 					for key, values := range cached.Headers {
 						for _, value := range values {
@@ -314,12 +317,12 @@ func IdempotencyMiddleware(config IdempotencyConfig) gin.HandlerFunc {
 			// Store in cache
 			config.Store.Set(cacheKey, cached, config.TTL)
 			
-			log.Info().
-				Str("key", idempotencyKey).
-				Str("method", c.Request.Method).
-				Str("path", c.Request.URL.Path).
-				Int("status", writer.statusCode).
-				Msg("Cached idempotent response")
+			config.Logger.WithFields(map[string]interface{}{
+				"key":    idempotencyKey,
+				"method": c.Request.Method,
+				"path":   c.Request.URL.Path,
+				"status": writer.statusCode,
+			}).Info("Cached idempotent response")
 		}
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,12 +19,18 @@ func init() {
 	gin.SetMode(gin.TestMode)
 }
 
+// testLogger creates a test logger for idempotency tests
+func testLogger() *observability.Logger {
+	return observability.NewLogger("dev", "test-service")
+}
+
 func TestIdempotencyMiddleware_WithoutKey(t *testing.T) {
 	// Setup
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
-		Store: store,
-		TTL:   1 * time.Hour,
+		Store:  store,
+		Logger: testLogger(),
+		TTL:    1 * time.Hour,
 	}
 
 	router := gin.New()
@@ -47,6 +54,7 @@ func TestIdempotencyMiddleware_CachesSuccessfulResponse(t *testing.T) {
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
 		Store: store,
+		Logger: testLogger(),
 		TTL:   1 * time.Hour,
 	}
 
@@ -96,6 +104,7 @@ func TestIdempotencyMiddleware_DifferentKeysNotCached(t *testing.T) {
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
 		Store: store,
+		Logger: testLogger(),
 		TTL:   1 * time.Hour,
 	}
 
@@ -130,6 +139,7 @@ func TestIdempotencyMiddleware_DoesNotCacheErrors(t *testing.T) {
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
 		Store: store,
+		Logger: testLogger(),
 		TTL:   1 * time.Hour,
 	}
 
@@ -170,6 +180,7 @@ func TestIdempotencyMiddleware_KeyTooLong(t *testing.T) {
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
 		Store: store,
+		Logger: testLogger(),
 		TTL:   1 * time.Hour,
 	}
 
@@ -199,6 +210,7 @@ func TestIdempotencyMiddleware_DifferentBodyHashDifferentCache(t *testing.T) {
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
 		Store:       store,
+		Logger: testLogger(),
 		TTL:         1 * time.Hour,
 		IncludeBody: true,
 	}
@@ -236,6 +248,7 @@ func TestIdempotencyMiddleware_SameBodyHashCached(t *testing.T) {
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
 		Store:       store,
+		Logger: testLogger(),
 		TTL:         1 * time.Hour,
 		IncludeBody: true,
 	}
@@ -274,6 +287,7 @@ func TestIdempotencyMiddleware_ConcurrentRequestsWithSameKey(t *testing.T) {
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
 		Store: store,
+		Logger: testLogger(),
 		TTL:   1 * time.Hour,
 	}
 
@@ -330,6 +344,7 @@ func TestIdempotencyMiddleware_CustomKeyGenerator(t *testing.T) {
 
 	config := IdempotencyConfig{
 		Store:        store,
+		Logger: testLogger(),
 		TTL:          1 * time.Hour,
 		KeyGenerator: customGen,
 	}
@@ -367,6 +382,7 @@ func TestIdempotencyMiddleware_TTLExpiration(t *testing.T) {
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
 		Store: store,
+		Logger: testLogger(),
 		TTL:   100 * time.Millisecond,
 	}
 
@@ -405,6 +421,7 @@ func TestIdempotencyMiddleware_PreservesHeaders(t *testing.T) {
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
 		Store: store,
+		Logger: testLogger(),
 		TTL:   1 * time.Hour,
 	}
 
@@ -439,6 +456,7 @@ func TestIdempotencyMiddleware_DifferentPaths(t *testing.T) {
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
 		Store: store,
+		Logger: testLogger(),
 		TTL:   1 * time.Hour,
 	}
 
@@ -504,6 +522,7 @@ func TestClearIdempotencyCache(t *testing.T) {
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
 		Store: store,
+		Logger: testLogger(),
 		TTL:   1 * time.Hour,
 	}
 
