@@ -12,9 +12,24 @@
 [![Build Status](https://img.shields.io/badge/Build-Passing-success)](https://github.com/pandora-exchange/pandora-exchange/actions)
 [![Documentation](https://img.shields.io/badge/Docs-Complete-informational)](./docs/README.md)
 
-[Features](#-features) • [Architecture](#-architecture) • [Quick Start](#-quick-start) • [API](#-api-overview) • [Documentation](#-documentation)
-
 </div>
+
+---
+
+## 📑 Table of Contents
+
+- [Overview](#-overview)
+- [Features](#-features)
+- [Architecture](#-architecture)
+- [Tech Stack](#️-tech-stack)
+- [Quick Start](#-quick-start)
+- [API Overview](#-api-overview)
+- [Project Structure](#-project-structure)
+- [Testing](#-testing)
+- [Roadmap](#️-roadmap)
+- [Documentation](#-documentation)
+- [Contributing](#-contributing)
+- [License](#-license)
 
 ---
 
@@ -62,62 +77,57 @@
 
 ## 🏛️ Architecture
 
-Pandora Exchange follows **Clean Architecture** with clear layer separation:
+Pandora Exchange follows **Clean Architecture** principles with clear separation of concerns:
 
-```mermaid
-graph TB
-    subgraph "External Layer"
-        HTTP[HTTP/REST API]
-        GRPC[gRPC API]
-    end
-    
-    subgraph "Transport Layer"
-        Handlers[Handlers & Middleware]
-    end
-    
-    subgraph "Service Layer"
-        UserService[User Service]
-        AuthService[Auth Service]
-        AdminService[Admin Service]
-    end
-    
-    subgraph "Repository Layer"
-        UserRepo[User Repository]
-        TokenRepo[Token Repository]
-        AuditRepo[Audit Repository]
-    end
-    
-    subgraph "Infrastructure"
-        Postgres[(PostgreSQL)]
-        Redis[(Redis)]
-        Vault[HashiCorp Vault]
-    end
-    
-    HTTP --> Handlers
-    GRPC --> Handlers
-    Handlers --> UserService
-    Handlers --> AuthService
-    Handlers --> AdminService
-    
-    UserService --> UserRepo
-    AuthService --> TokenRepo
-    AdminService --> AuditRepo
-    
-    UserRepo --> Postgres
-    TokenRepo --> Postgres
-    AuditRepo --> Postgres
-    
-    AuthService --> Redis
-    UserService --> Vault
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Transport Layer                         │
+│  • REST API (Fiber) - HTTP endpoints for clients           │
+│  • gRPC API - Inter-service communication                   │
+│  • Middleware - Auth, logging, rate limiting, tracing      │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                      Service Layer                          │
+│  • User Service - Registration, profile management         │
+│  • Auth Service - Login, JWT, session management           │
+│  • Admin Service - User administration, KYC                 │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    Repository Layer                         │
+│  • User Repository - User CRUD operations                   │
+│  • Token Repository - Refresh token management             │
+│  • Audit Repository - Immutable audit logging              │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│                    Infrastructure                           │
+│  • PostgreSQL 15 - Primary data store                      │
+│  • Redis 7 - Cache, rate limiting, pub/sub                │
+│  • Vault - Secrets management (production)                 │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-**Key Principles:**
-- Domain layer has no external dependencies
-- Dependencies point inward (domain ← service ← transport)
-- Interfaces defined by inner layers, implemented by outer layers
-- Database details hidden behind repository interfaces
+### Architecture Principles
 
-> 📚 See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed design documentation.
+- ✅ **Dependency Rule**: Dependencies point inward (Infrastructure → Repository → Service → Domain)
+- ✅ **Domain Independence**: Business logic has zero external dependencies
+- ✅ **Interface Segregation**: Inner layers define interfaces, outer layers implement
+- ✅ **Testability**: Each layer can be tested in isolation with mocks
+- ✅ **Flexibility**: Easy to swap infrastructure (e.g., PostgreSQL → MySQL)
+
+### Key Components
+
+| Layer | Responsibility | Technologies |
+|-------|---------------|--------------|
+| **Domain** | Business models, errors, interfaces | Pure Go structs & interfaces |
+| **Service** | Business logic, validation | JWT, Argon2id, business rules |
+| **Repository** | Data access, persistence | sqlc, PostgreSQL, migrations |
+| **Transport** | HTTP/gRPC handlers, middleware | Fiber, gRPC, OpenAPI |
+| **Infrastructure** | External services, config | Vault, Redis, Prometheus, OTel |
+
+> 📚 **Detailed Architecture**: See [ARCHITECTURE.md](./ARCHITECTURE.md) for data models, event flows, and sequence diagrams.
 
 ---
 
