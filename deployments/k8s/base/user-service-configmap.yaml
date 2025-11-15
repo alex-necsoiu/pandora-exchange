@@ -38,9 +38,11 @@ data:
   audit_cleanup_interval: "24h"
   
   # Vault configuration (disabled in dev, enabled in prod)
+  # Note: These are configuration paths, not actual secrets
   vault_enabled: "false"
   vault_addr: "http://vault.default.svc.cluster.local:8200"
-  vault_secret_path: "secret/data/pandora/user-service"
+  vault_path: "secret/data/pandora/user-service"  # Path to fetch secrets from Vault
+  vault_role: "pandora-user-service"
   
   # OpenTelemetry configuration
   otel_endpoint: "http://otel-collector.observability.svc.cluster.local:4317"
