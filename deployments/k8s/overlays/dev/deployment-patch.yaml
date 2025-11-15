@@ -8,8 +8,28 @@ spec:
   replicas: 1  # Only 1 replica for dev
   template:
     spec:
+      # Security: Run as non-root user (required for KSV118)
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      
       containers:
       - name: user-service
+        # Security context for container level
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          capabilities:
+            drop:
+            - ALL
+        
         resources:
           requests:
             memory: "128Mi"

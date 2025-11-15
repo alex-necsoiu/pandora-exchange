@@ -9,8 +9,28 @@ spec:
   replicas: 5  # Start with 5 replicas for HA
   template:
     spec:
+      # Security: Run as non-root user (required for KSV118)
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      
       containers:
       - name: user-service
+        # Security context for container level
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          capabilities:
+            drop:
+            - ALL
+        
         resources:
           requests:
             memory: "512Mi"
