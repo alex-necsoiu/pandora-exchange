@@ -19,6 +19,8 @@ spec:
       
       containers:
       - name: user-service
+        image: pandora/user-service:staging  # Specific tag for staging environment
+        
         # Security context for container level
         securityContext:
           allowPrivilegeEscalation: false
