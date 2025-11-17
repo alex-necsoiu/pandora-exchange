@@ -20,6 +20,8 @@ spec:
       
       containers:
       - name: user-service
+        image: ghcr.io/alex-necsoiu/pandora-exchange/user-service:v1.0.0  # GitHub Container Registry (trusted) with semantic version
+        
         # Security context for container level
         securityContext:
           allowPrivilegeEscalation: false
