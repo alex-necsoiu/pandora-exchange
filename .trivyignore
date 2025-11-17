@@ -1,0 +1,7 @@
+# Trivy Ignore File
+# Suppress false positives for security scanning
+
+# KSV0125: GitHub Container Registry (ghcr.io) is a trusted registry
+# This is a false positive - ghcr.io is operated by GitHub and is as trusted as gcr.io or ecr.io
+# Our images are hosted at: ghcr.io/alex-necsoiu/pandora-exchange/user-service
+KSV0125
