@@ -186,11 +186,11 @@ spec:
               optional: true  # Redis may not have password in dev
         
         # Audit configuration
-        - name: AUDIT_LOG_RETENTION_PERIOD_DAYS
+        - name: AUDIT_LOGS_KEEP_FOR_DAYS
           valueFrom:
             configMapKeyRef:
               name: user-service-config
-              key: audit_log_retention_period_days
+              key: audit_logs_keep_for_days
         
         - name: AUDIT_CLEANUP_INTERVAL
           valueFrom:

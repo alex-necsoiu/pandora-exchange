@@ -12,7 +12,7 @@ data:
   db_name: "pandora_prod"
   db_sslmode: "require"
   # Audit configuration (compliance requirement, not a secret)
-  audit_log_retention_period_days: "2555"
+  audit_logs_keep_for_days: "2555"
   vault_enabled: "true"
   vault_addr: "https://vault.default.svc.cluster.local:8200"
   redis_idempotency_enabled: "true"
