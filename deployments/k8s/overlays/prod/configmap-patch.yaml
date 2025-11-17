@@ -1,5 +1,7 @@
 # Production ConfigMap patches
 # Overrides development values with production configuration
+# Note: These are non-sensitive configuration values, not secrets
+# Actual secrets (passwords, keys, tokens) are stored in HashiCorp Vault
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -9,9 +11,11 @@ data:
   app_env: "prod"
   db_name: "pandora_prod"
   db_sslmode: "require"
-  audit_retention_days: "2555"
+  # Audit configuration (compliance requirement, not a secret)
+  audit_log_retention_period_days: "2555"
   vault_enabled: "true"
   vault_addr: "https://vault.default.svc.cluster.local:8200"
   redis_idempotency_enabled: "true"
-  redis_idempotency_key_prefix: "idempotency:prod:"
+  # Idempotency namespace prefix (identifier, not a secret)
+  redis_idempotency_namespace_prefix: "idempotency:prod:"
   redis_idempotency_ttl: "24h"

@@ -94,7 +94,7 @@ type AuditConfig struct {
 	// - sandbox: 90 days
 	// - audit: 2555 days (7 years for compliance)
 	// - prod: 2555 days (7 years for compliance)
-	RetentionDays int `mapstructure:"AUDIT_RETENTION_DAYS"`
+	RetentionDays int `mapstructure:"AUDIT_LOG_RETENTION_PERIOD_DAYS"`
 	
 	// CleanupInterval specifies how often to run the cleanup job (in hours)
 	// Default: 24 hours (daily cleanup)
@@ -162,7 +162,7 @@ func Load() (*Config, error) {
 	v.SetDefault("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
 	v.SetDefault("OTEL_SERVICE_NAME", "user-service")
 	v.SetDefault("OTEL_SAMPLE_RATE", 1.0)
-	v.SetDefault("AUDIT_RETENTION_DAYS", 90)
+	v.SetDefault("AUDIT_LOG_RETENTION_PERIOD_DAYS", 90)
 	v.SetDefault("AUDIT_CLEANUP_INTERVAL", "24h")
 	v.SetDefault("VAULT_ENABLED", false)
 	v.SetDefault("VAULT_ADDR", "http://localhost:8200")
@@ -188,7 +188,7 @@ func Load() (*Config, error) {
 		"JWT_SECRET", "JWT_ACCESS_TOKEN_EXPIRY", "JWT_REFRESH_TOKEN_EXPIRY",
 		"REDIS_HOST", "REDIS_PORT", "REDIS_PASSWORD", "REDIS_DB",
 		"OTEL_ENABLED", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_SERVICE_NAME", "OTEL_SAMPLE_RATE",
-		"AUDIT_RETENTION_DAYS", "AUDIT_CLEANUP_INTERVAL",
+		"AUDIT_LOG_RETENTION_PERIOD_DAYS", "AUDIT_CLEANUP_INTERVAL",
 		"VAULT_ENABLED", "VAULT_ADDR", "VAULT_TOKEN", "VAULT_SECRET_PATH",
 		"RATE_LIMIT_REQUESTS_PER_WINDOW", "RATE_LIMIT_WINDOW_DURATION",
 		"RATE_LIMIT_ENABLE_PER_USER", "RATE_LIMIT_USER_REQUESTS_PER_WINDOW",
