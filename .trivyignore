@@ -5,3 +5,12 @@
 # This is a false positive - ghcr.io is operated by GitHub and is as trusted as gcr.io or ecr.io
 # Our images are hosted at: ghcr.io/alex-necsoiu/pandora-exchange/user-service
 KSV0125
+
+# AVD-KSV-01010: ConfigMap contains non-sensitive configuration values flagged by keyword matching
+# False positives - these are public service discovery values, not secrets:
+# - db_port: PostgreSQL port number (5432) - standard port, not sensitive
+# - redis_port: Redis port number (6379) - standard port, not sensitive  
+# - rate_limit_requests: Rate limiting threshold (100) - public config, not sensitive
+# - audit_log_retention_period_days: Compliance requirement (90/2555 days) - not sensitive
+# All actual secrets (passwords, tokens, keys) are stored in HashiCorp Vault, not ConfigMaps
+AVD-KSV-01010
