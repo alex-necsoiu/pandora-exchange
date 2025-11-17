@@ -80,7 +80,7 @@ spec:
       
       containers:
       - name: user-service
-        image: ghcr.io/alex-necsoiu/pandora-exchange/user-service:latest  # Trusted registry, overlays use specific tags
+        image: ghcr.io/alex-necsoiu/pandora-exchange/user-service:v1.0.0  # Base version, overlays override with environment-specific tags
         imagePullPolicy: Always
         
         ports:
