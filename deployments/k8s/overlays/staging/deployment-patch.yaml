@@ -19,7 +19,7 @@ spec:
       
       containers:
       - name: user-service
-        image: pandora/user-service:staging  # Specific tag for staging environment
+        image: ghcr.io/alex-necsoiu/pandora-exchange/user-service:staging  # GitHub Container Registry (trusted)
         
         # Security context for container level
         securityContext:
