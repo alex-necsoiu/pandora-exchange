@@ -10,10 +10,9 @@ on:
     - cron: '0 2 * * *'
   workflow_dispatch:
 
+# Default permissions - read-only
 permissions:
   contents: read
-  security-events: write
-  pull-requests: write
 
 env:
   GO_VERSION: '1.23'
@@ -23,6 +22,9 @@ jobs:
   dependency-review:
     name: Dependency Review
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout code
@@ -38,6 +40,9 @@ jobs:
   trivy-scan:
     name: Trivy Vulnerability Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # Required for uploading SARIF results
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -79,6 +84,8 @@ jobs:
   govulncheck:
     name: Go Vulnerability Check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -101,6 +108,8 @@ jobs:
   secret-scan:
     name: Secret Scanning
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -152,6 +161,9 @@ jobs:
   semgrep:
     name: Semgrep SAST
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # Required for uploading SARIF results
     container:
       image: semgrep/semgrep
     
@@ -174,6 +186,8 @@ jobs:
   license-check:
     name: License Compliance
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -216,6 +230,9 @@ jobs:
   docker-scan:
     name: Docker Image Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # Required for uploading SARIF results
     if: github.event_name == 'push' || github.event_name == 'pull_request'
     steps:
       - name: Checkout code
@@ -311,6 +328,8 @@ jobs:
   security-summary:
     name: Security Summary
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     needs: [trivy-scan, govulncheck, secret-scan, codeql, semgrep, license-check, docker-scan]
     if: always()
     
