@@ -66,18 +66,21 @@ spec:
           {{- end -}}
     
     spec:
-      # Security: Run as non-root user
+      # Security: Run as non-root user (required for KSV118)
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
+        runAsGroup: 1000
         fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       
       # Graceful shutdown: Wait for connections to drain
       terminationGracePeriodSeconds: 30
       
       containers:
       - name: user-service
-        image: pandora/user-service:latest  # TODO: Use specific version tags
+        image: ghcr.io/alex-necsoiu/pandora-exchange/user-service:latest  # Trusted registry, overlays use specific tags
         imagePullPolicy: Always
         
         ports:
@@ -183,11 +186,11 @@ spec:
               optional: true  # Redis may not have password in dev
         
         # Audit configuration
-        - name: AUDIT_RETENTION_DAYS
+        - name: AUDIT_LOG_RETENTION_PERIOD_DAYS
           valueFrom:
             configMapKeyRef:
               name: user-service-config
-              key: audit_retention_days
+              key: audit_log_retention_period_days
         
         - name: AUDIT_CLEANUP_INTERVAL
           valueFrom:
@@ -241,12 +244,13 @@ spec:
           successThreshold: 1
           failureThreshold: 30     # Allow up to 5 minutes to start (30 * 10s)
         
-        # Security: Read-only root filesystem
+        # Security: Read-only root filesystem (required for KSV014)
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
           runAsUser: 1000
+          runAsGroup: 1000
           capabilities:
             drop:
             - ALL
