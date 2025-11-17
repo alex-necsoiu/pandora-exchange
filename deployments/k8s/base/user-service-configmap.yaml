@@ -26,15 +26,15 @@ data:
   # Redis idempotency middleware configuration
   # Used for distributed request deduplication across multiple service instances
   redis_idempotency_enabled: "true"
-  redis_idempotency_key_prefix: "idempotency:"  # Namespace for idempotency keys
-  redis_idempotency_ttl: "24h"                   # How long to cache responses
+  redis_idempotency_namespace_prefix: "idempotency:"  # Namespace for idempotency keys
+  redis_idempotency_ttl: "24h"                         # How long to cache responses
   
   # JWT token expiry
   jwt_access_expiry: "15m"
   jwt_refresh_expiry: "168h"  # 7 days
   
   # Audit logging configuration
-  audit_retention_days: "90"  # Dev: 90 days, Prod: 2555 days (7 years)
+  audit_log_retention_period_days: "90"  # Dev: 90 days, Prod: 2555 days (7 years)
   audit_cleanup_interval: "24h"
   
   # Vault configuration (disabled in dev, enabled in prod)
