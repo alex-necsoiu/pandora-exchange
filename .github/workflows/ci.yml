@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+# Default permissions for all jobs - read-only
+permissions:
+  contents: read
+
 env:
   GO_VERSION: '1.23'
 
@@ -54,6 +58,9 @@ jobs:
   security:
     name: Security Scan
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # Required for uploading SARIF results
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
