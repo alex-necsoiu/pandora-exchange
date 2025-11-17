@@ -12,9 +12,9 @@ spec:
       # Security: Run as non-root user (required for KSV118)
       securityContext:
         runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
+        runAsUser: 10001  # Use UID > 10000 to avoid conflicts with system users (KSV021)
+        runAsGroup: 10001  # Use GID > 10000 to avoid conflicts with system groups (KSV021)
+        fsGroup: 10001
         seccompProfile:
           type: RuntimeDefault
       
@@ -27,8 +27,8 @@ spec:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
           runAsNonRoot: true
-          runAsUser: 1000
-          runAsGroup: 1000
+          runAsUser: 10001
+          runAsGroup: 10001
           capabilities:
             drop:
             - ALL
