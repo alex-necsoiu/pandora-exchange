@@ -34,7 +34,7 @@ data:
   jwt_refresh_expiry: "168h"  # 7 days
   
   # Audit logging configuration
-  audit_log_retention_period_days: "90"  # Dev: 90 days, Prod: 2555 days (7 years)
+  audit_logs_keep_for_days: "90"  # Dev: 90 days, Prod: 2555 days (7 years)
   audit_cleanup_interval: "24h"
   
   # Vault configuration (disabled in dev, enabled in prod)
