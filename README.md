@@ -1,7 +1,3 @@
-<div align="center">
-
-<img src="docs/assets/logo.svg" alt="Pandora Exchange Logo" width="200"/>
-
 # 🚀 Pandora Exchange
 
 **Enterprise-Grade Cryptocurrency Exchange Platform**
@@ -12,7 +8,6 @@
 [![Build Status](https://img.shields.io/badge/Build-Passing-success)](https://github.com/pandora-exchange/pandora-exchange/actions)
 [![Documentation](https://img.shields.io/badge/Docs-Complete-informational)](./docs/README.md)
 
-</div>
 
 ---
 
@@ -82,30 +77,30 @@ Pandora Exchange follows **Clean Architecture** principles with clear separation
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     Transport Layer                         │
-│  • REST API (Fiber) - HTTP endpoints for clients           │
+│  • REST API (Fiber) - HTTP endpoints for clients            │
 │  • gRPC API - Inter-service communication                   │
-│  • Middleware - Auth, logging, rate limiting, tracing      │
+│  • Middleware - Auth, logging, rate limiting, tracing       │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                      Service Layer                          │
-│  • User Service - Registration, profile management         │
-│  • Auth Service - Login, JWT, session management           │
+│  • User Service - Registration, profile management          │
+│  • Auth Service - Login, JWT, session management            │
 │  • Admin Service - User administration, KYC                 │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                    Repository Layer                         │
 │  • User Repository - User CRUD operations                   │
-│  • Token Repository - Refresh token management             │
-│  • Audit Repository - Immutable audit logging              │
+│  • Token Repository - Refresh token management              │
+│  • Audit Repository - Immutable audit logging               │
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                    Infrastructure                           │
-│  • PostgreSQL 15 - Primary data store                      │
-│  • Redis 7 - Cache, rate limiting, pub/sub                │
-│  • Vault - Secrets management (production)                 │
+│  • PostgreSQL 15 - Primary data store                       │
+│  • Redis 7 - Cache, rate limiting, pub/sub                  │
+│  • Vault - Secrets management (production)                  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
