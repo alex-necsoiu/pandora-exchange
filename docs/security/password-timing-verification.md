@@ -37,7 +37,7 @@ The timing test validates our implementation but is not required for security - 
 
 - Clean development environment (no background processes)
 - Adequate system resources (CPU not under load)
-- Go 1.21+ installed
+- Go 1.24+ installed
 
 ### Running the Test Locally
 

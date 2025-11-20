@@ -50,7 +50,7 @@ Maintainability | Clean architecture, modular services |
 
 | Category | Technology |
 |---|---|
-Language | Go ≥ 1.21 |
+Language | Go ≥ 1.24 |
 Framework | Gin (REST) |
 Internal RPC | gRPC |
 Database | PostgreSQL |

@@ -426,7 +426,7 @@ Q4 2025
 ### Technology Stack
 
 **Current (Phase 1):**
-- Go 1.21+
+- Go 1.24+
 - Fiber (HTTP framework)
 - gRPC
 - PostgreSQL 15

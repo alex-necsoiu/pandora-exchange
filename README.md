@@ -154,7 +154,7 @@ Pandora Exchange follows **Clean Architecture** principles with clear separation
 
 | Category | Technology | Purpose |
 |----------|-----------|---------|
-| **Language** | Go 1.21+ | High-performance backend |
+| **Language** | Go 1.24+ | High-performance backend |
 | **HTTP Framework** | Gin v1.9.1 | Fast HTTP router with rich middleware ecosystem |
 | **Database** | PostgreSQL 15 | Primary data store |
 | **Cache** | Redis 7 | Caching, rate limiting, events |
@@ -175,7 +175,7 @@ Pandora Exchange follows **Clean Architecture** principles with clear separation
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Go 1.21+
+- Go 1.24+
 - Docker & Docker Compose
 - Make
 

@@ -68,7 +68,7 @@ docs/
 ### Technology Stack
 | Layer | Technology |
 |-------|------------|
-| **Language** | Go 1.21+ |
+| **Language** | Go 1.24+ |
 | **Web Framework** | Gin (REST) |
 | **Internal RPC** | gRPC (planned) |
 | **Database** | PostgreSQL 15+ |

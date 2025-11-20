@@ -20,7 +20,7 @@ Thank you for your interest in contributing to Pandora Exchange! This guide will
 ### Prerequisites
 
 Before contributing, ensure you have:
-- Go 1.21 or later
+- Go 1.24 or later
 - Docker & Docker Compose
 - PostgreSQL 15+
 - Redis 7+
