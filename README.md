@@ -101,7 +101,7 @@ Pandora Exchange follows **Clean Architecture** principles with clear separation
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                     Transport Layer                         │
-│  • REST API (Fiber) - HTTP endpoints for clients            │
+│  • REST API (Gin) - HTTP endpoints for clients              │
 │  • gRPC API - Inter-service communication                   │
 │  • Middleware - Auth, logging, rate limiting, tracing       │
 └─────────────────────────────────────────────────────────────┘
@@ -143,10 +143,10 @@ Pandora Exchange follows **Clean Architecture** principles with clear separation
 | **Domain** | Business models, errors, interfaces | Pure Go structs & interfaces |
 | **Service** | Business logic, validation | JWT, Argon2id, business rules |
 | **Repository** | Data access, persistence | sqlc, PostgreSQL, migrations |
-| **Transport** | HTTP/gRPC handlers, middleware | Fiber, gRPC, OpenAPI |
+| **Transport** | HTTP/gRPC handlers, middleware | Gin, gRPC, OpenAPI |
 | **Infrastructure** | External services, config | Vault, Redis, Prometheus, OTel |
 
-> 📚 **Detailed Architecture**: See [ARCHITECTURE.md](./ARCHITECTURE.md) for data models, event flows, and sequence diagrams.
+> 📚 **Detailed Architecture**: See [ARCHITECTURE.md](./docs/ARCHITECTURE.md) for data models, event flows, and sequence diagrams.
 
 ---
 
@@ -155,7 +155,7 @@ Pandora Exchange follows **Clean Architecture** principles with clear separation
 | Category | Technology | Purpose |
 |----------|-----------|---------|
 | **Language** | Go 1.21+ | High-performance backend |
-| **HTTP Framework** | Fiber v2 | Fast HTTP server |
+| **HTTP Framework** | Gin v1.9.1 | Fast HTTP router with rich middleware ecosystem |
 | **Database** | PostgreSQL 15 | Primary data store |
 | **Cache** | Redis 7 | Caching, rate limiting, events |
 | **RPC** | gRPC | Inter-service communication |
@@ -306,7 +306,7 @@ pandora-exchange/
 │   ├── service/               # Business logic layer
 │   ├── repository/            # Data access layer (PostgreSQL)
 │   ├── transport/             # HTTP & gRPC handlers
-│   │   ├── http/              # REST API (Fiber)
+│   │   ├── http/              # REST API (Gin)
 │   │   └── grpc/              # gRPC server
 │   ├── middleware/            # Auth, logging, rate limiting
 │   ├── vault/                 # HashiCorp Vault integration
@@ -428,7 +428,7 @@ make security
 ### Getting Started
 - 🚀 [Quick Start Guide](./docs/QUICK_START.md) - Installation, configuration, development
 - 📡 [API Documentation](./docs/API_DOCUMENTATION.md) - Complete REST & gRPC reference
-- 🏗️ [Architecture](./ARCHITECTURE.md) - System design, patterns, data models
+- 🏗️ [Architecture](./docs/ARCHITECTURE.md) - System design, patterns, data models
 
 ### Developer Guides
 - 🤝 [Contributing](./docs/CONTRIBUTING.md) - Workflow, code standards, PR process
