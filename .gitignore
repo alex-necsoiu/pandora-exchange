@@ -75,6 +75,26 @@ k8s/secrets/
 Thumbs.db
 ehthumbs.db
 
+# Development notes (kept locally, not committed)
+Prompt.md
+Readme_prompt.md
+*.backup
+*.bak
+
+# Coverage reports (generated files)
+coverage.html
+coverage.out
+coverage_all.out
+coverage_events.out
+vault_coverage.html
+vault_coverage.out
+*.coverprofile
+
+# Build artifacts
+user-service
+bin/
+*.out
+
 # Compiled protobuf files (will be regenerated)
 *.pb.go
 *_grpc.pb.go
