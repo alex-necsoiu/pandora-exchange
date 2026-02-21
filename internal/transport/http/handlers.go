@@ -4,7 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
+	userDomain "github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -12,12 +13,12 @@ import (
 
 // Handler handles HTTP requests for the user service.
 type Handler struct {
-	userService domain.UserService
+	userService userDomain.Service
 	logger      *observability.Logger
 }
 
-// NewHandler creates a new HTTP handler.
-func NewHandler(userService domain.UserService, logger *observability.Logger) *Handler {
+// NewHandler creates a new Handler.
+func NewHandler(userService userDomain.Service, logger *observability.Logger) *Handler {
 	return &Handler{
 		userService: userService,
 		logger:      logger,
@@ -323,7 +324,7 @@ func (h *Handler) UpdateKYC(c *gin.Context) {
 		"status":  req.Status,
 	}).Info("Processing KYC status update")
 
-	kycStatus := domain.KYCStatus(req.Status)
+	kycStatus := userDomain.KYCStatus(req.Status)
 	user, err := h.userService.UpdateKYC(c.Request.Context(), userID, kycStatus)
 	if err != nil {
 		h.handleServiceError(c, err, "KYC update failed")
@@ -438,33 +439,33 @@ func (h *Handler) handleServiceError(c *gin.Context, err error, context string) 
 	var message string
 
 	switch {
-	case errors.Is(err, domain.ErrUserNotFound):
+	case errors.Is(err, userDomain.ErrNotFound):
 		statusCode = http.StatusNotFound
 		errorCode = "user_not_found"
 		message = "user not found"
-	case errors.Is(err, domain.ErrUserAlreadyExists):
+	case errors.Is(err, userDomain.ErrAlreadyExists):
 		statusCode = http.StatusConflict
 		errorCode = "user_already_exists"
 		message = "user with this email already exists"
-	case errors.Is(err, domain.ErrInvalidCredentials):
+	case errors.Is(err, userDomain.ErrInvalidCredentials):
 		statusCode = http.StatusUnauthorized
 		errorCode = "invalid_credentials"
 		message = "invalid email or password"
-	case errors.Is(err, domain.ErrRefreshTokenNotFound),
-		errors.Is(err, domain.ErrRefreshTokenExpired),
-		errors.Is(err, domain.ErrRefreshTokenRevoked):
+	case errors.Is(err, auth.ErrRefreshTokenNotFound),
+		errors.Is(err, auth.ErrRefreshTokenExpired),
+		errors.Is(err, auth.ErrRefreshTokenRevoked):
 		statusCode = http.StatusUnauthorized
 		errorCode = "invalid_refresh_token"
 		message = "invalid or expired refresh token"
-	case errors.Is(err, domain.ErrInvalidKYCStatus):
+	case errors.Is(err, userDomain.ErrInvalidKYCStatus):
 		statusCode = http.StatusBadRequest
 		errorCode = "invalid_kyc_status"
 		message = "invalid KYC status"
-	case errors.Is(err, domain.ErrInvalidEmail):
+	case errors.Is(err, userDomain.ErrInvalidEmail):
 		statusCode = http.StatusBadRequest
 		errorCode = "invalid_email"
 		message = "invalid email format"
-	case errors.Is(err, domain.ErrWeakPassword):
+	case errors.Is(err, userDomain.ErrWeakPassword):
 		statusCode = http.StatusBadRequest
 		errorCode = "weak_password"
 		message = "password does not meet security requirements"

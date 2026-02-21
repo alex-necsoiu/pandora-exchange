@@ -9,7 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	userDomain "github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
 	httpTransport "github.com/alex-necsoiu/pandora-exchange/internal/transport/http"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -21,23 +22,23 @@ import (
 func TestListUsers(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	user1 := &domain.User{
+	user1 := &userDomain.User{
 		ID:        uuid.New(),
 		Email:     "user1@test.com",
 		FirstName: "User",
 		LastName:  "One",
-		Role:      domain.RoleUser,
-		KYCStatus: domain.KYCStatusVerified,
+		Role:      userDomain.RoleUser,
+		KYCStatus: userDomain.KYCStatusVerified,
 		CreatedAt: time.Now(),
 	}
 
-	user2 := &domain.User{
+	user2 := &userDomain.User{
 		ID:        uuid.New(),
 		Email:     "user2@test.com",
 		FirstName: "User",
 		LastName:  "Two",
-		Role:      domain.RoleAdmin,
-		KYCStatus: domain.KYCStatusPending,
+		Role:      userDomain.RoleAdmin,
+		KYCStatus: userDomain.KYCStatusPending,
 		CreatedAt: time.Now(),
 	}
 
@@ -53,7 +54,7 @@ func TestListUsers(t *testing.T) {
 			queryParams: "",
 			mockSetup: func(m *MockUserService) {
 				m.On("ListUsers", mock.Anything, 20, 0).
-					Return([]*domain.User{user1, user2}, int64(2), nil)
+					Return([]*userDomain.User{user1, user2}, int64(2), nil)
 			},
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -69,7 +70,7 @@ func TestListUsers(t *testing.T) {
 			queryParams: "?limit=10&offset=5",
 			mockSetup: func(m *MockUserService) {
 				m.On("ListUsers", mock.Anything, 10, 5).
-					Return([]*domain.User{user1}, int64(10), nil)
+					Return([]*userDomain.User{user1}, int64(10), nil)
 			},
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -83,7 +84,7 @@ func TestListUsers(t *testing.T) {
 			queryParams: "",
 			mockSetup: func(m *MockUserService) {
 				m.On("ListUsers", mock.Anything, 20, 0).
-					Return([]*domain.User(nil), int64(0), fmt.Errorf("database error"))
+					Return([]*userDomain.User(nil), int64(0), fmt.Errorf("database error"))
 			},
 			expectedStatus: http.StatusInternalServerError,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -154,13 +155,13 @@ func TestListUsers(t *testing.T) {
 func TestSearchUsers(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	user1 := &domain.User{
+	user1 := &userDomain.User{
 		ID:        uuid.New(),
 		Email:     "john@test.com",
 		FirstName: "John",
 		LastName:  "Doe",
-		Role:      domain.RoleUser,
-		KYCStatus: domain.KYCStatusVerified,
+		Role:      userDomain.RoleUser,
+		KYCStatus: userDomain.KYCStatusVerified,
 		CreatedAt: time.Now(),
 	}
 
@@ -176,7 +177,7 @@ func TestSearchUsers(t *testing.T) {
 			queryParams: "?query=john",
 			mockSetup: func(m *MockUserService) {
 				m.On("SearchUsers", mock.Anything, "john", 20, 0).
-					Return([]*domain.User{user1}, nil)
+					Return([]*userDomain.User{user1}, nil)
 			},
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -190,7 +191,7 @@ func TestSearchUsers(t *testing.T) {
 			queryParams: "?query=nonexistent",
 			mockSetup: func(m *MockUserService) {
 				m.On("SearchUsers", mock.Anything, "nonexistent", 20, 0).
-					Return([]*domain.User{}, nil)
+					Return([]*userDomain.User{}, nil)
 			},
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -203,7 +204,7 @@ func TestSearchUsers(t *testing.T) {
 			queryParams: "?query=error",
 			mockSetup: func(m *MockUserService) {
 				m.On("SearchUsers", mock.Anything, "error", 20, 0).
-					Return([]*domain.User(nil), fmt.Errorf("search failed"))
+					Return([]*userDomain.User(nil), fmt.Errorf("search failed"))
 			},
 			expectedStatus: http.StatusInternalServerError,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -275,13 +276,13 @@ func TestGetUser(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	userID := uuid.New()
-	user := &domain.User{
+	user := &userDomain.User{
 		ID:        userID,
 		Email:     "test@test.com",
 		FirstName: "Test",
 		LastName:  "User",
-		Role:      domain.RoleUser,
-		KYCStatus: domain.KYCStatusVerified,
+		Role:      userDomain.RoleUser,
+		KYCStatus: userDomain.KYCStatusVerified,
 		CreatedAt: time.Now(),
 	}
 
@@ -320,7 +321,7 @@ func TestGetUser(t *testing.T) {
 			userID: userID.String(),
 			mockSetup: func(m *MockUserService) {
 				m.On("GetUserByIDAdmin", mock.Anything, userID).
-					Return((*domain.User)(nil), domain.ErrUserNotFound)
+					Return((*userDomain.User)(nil), userDomain.ErrNotFound)
 			},
 			expectedStatus: http.StatusNotFound,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -332,7 +333,7 @@ func TestGetUser(t *testing.T) {
 			userID: userID.String(),
 			mockSetup: func(m *MockUserService) {
 				m.On("GetUserByIDAdmin", mock.Anything, userID).
-					Return((*domain.User)(nil), fmt.Errorf("database error"))
+					Return((*userDomain.User)(nil), fmt.Errorf("database error"))
 			},
 			expectedStatus: http.StatusInternalServerError,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -377,13 +378,13 @@ func TestUpdateUserRole(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	userID := uuid.New()
-	updatedUser := &domain.User{
+	updatedUser := &userDomain.User{
 		ID:        userID,
 		Email:     "test@test.com",
 		FirstName: "Test",
 		LastName:  "User",
-		Role:      domain.RoleAdmin,
-		KYCStatus: domain.KYCStatusVerified,
+		Role:      userDomain.RoleAdmin,
+		KYCStatus: userDomain.KYCStatusVerified,
 		CreatedAt: time.Now(),
 	}
 
@@ -399,22 +400,22 @@ func TestUpdateUserRole(t *testing.T) {
 			name:   "update role successfully",
 			userID: userID.String(),
 			requestBody: httpTransport.AdminUpdateRoleRequest{
-				Role: string(domain.RoleAdmin),
+				Role: string(userDomain.RoleAdmin),
 			},
 			mockSetup: func(m *MockUserService) {
-				m.On("UpdateUserRole", mock.Anything, userID, domain.RoleAdmin).
+				m.On("UpdateUserRole", mock.Anything, userID, userDomain.RoleAdmin).
 					Return(updatedUser, nil)
 			},
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
-				assert.Equal(t, string(domain.RoleAdmin), body["role"])
+				assert.Equal(t, string(userDomain.RoleAdmin), body["role"])
 			},
 		},
 		{
 			name:   "update role with invalid user ID",
 			userID: "invalid-uuid",
 			requestBody: httpTransport.AdminUpdateRoleRequest{
-				Role: string(domain.RoleAdmin),
+				Role: string(userDomain.RoleAdmin),
 			},
 			mockSetup: func(m *MockUserService) {
 				// No service call expected
@@ -438,11 +439,11 @@ func TestUpdateUserRole(t *testing.T) {
 			name:   "update role user not found",
 			userID: userID.String(),
 			requestBody: httpTransport.AdminUpdateRoleRequest{
-				Role: string(domain.RoleAdmin),
+				Role: string(userDomain.RoleAdmin),
 			},
 			mockSetup: func(m *MockUserService) {
-				m.On("UpdateUserRole", mock.Anything, userID, domain.RoleAdmin).
-					Return((*domain.User)(nil), domain.ErrUserNotFound)
+				m.On("UpdateUserRole", mock.Anything, userID, userDomain.RoleAdmin).
+					Return((*userDomain.User)(nil), userDomain.ErrNotFound)
 			},
 			expectedStatus: http.StatusNotFound,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -456,8 +457,8 @@ func TestUpdateUserRole(t *testing.T) {
 				Role: "invalid_role",
 			},
 			mockSetup: func(m *MockUserService) {
-				m.On("UpdateUserRole", mock.Anything, userID, domain.Role("invalid_role")).
-					Return((*domain.User)(nil), domain.ErrInvalidRole)
+				m.On("UpdateUserRole", mock.Anything, userID, userDomain.Role("invalid_role")).
+					Return((*userDomain.User)(nil), userDomain.ErrInvalidRole)
 			},
 			expectedStatus: http.StatusBadRequest,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -468,11 +469,11 @@ func TestUpdateUserRole(t *testing.T) {
 			name:   "update role with service error",
 			userID: userID.String(),
 			requestBody: httpTransport.AdminUpdateRoleRequest{
-				Role: string(domain.RoleAdmin),
+				Role: string(userDomain.RoleAdmin),
 			},
 			mockSetup: func(m *MockUserService) {
-				m.On("UpdateUserRole", mock.Anything, userID, domain.RoleAdmin).
-					Return((*domain.User)(nil), fmt.Errorf("database error"))
+				m.On("UpdateUserRole", mock.Anything, userID, userDomain.RoleAdmin).
+					Return((*userDomain.User)(nil), fmt.Errorf("database error"))
 			},
 			expectedStatus: http.StatusInternalServerError,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -527,7 +528,7 @@ func TestGetAllSessions(t *testing.T) {
 	userID1 := uuid.New()
 	userID2 := uuid.New()
 
-	session1 := &domain.RefreshToken{
+	session1 := &auth.RefreshToken{
 		Token:     "token1",
 		UserID:    userID1,
 		IPAddress: "192.168.1.1",
@@ -536,7 +537,7 @@ func TestGetAllSessions(t *testing.T) {
 		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
 	}
 
-	session2 := &domain.RefreshToken{
+	session2 := &auth.RefreshToken{
 		Token:     "token2",
 		UserID:    userID2,
 		IPAddress: "192.168.1.2",
@@ -557,7 +558,7 @@ func TestGetAllSessions(t *testing.T) {
 			queryParams: "",
 			mockSetup: func(m *MockUserService) {
 				m.On("GetAllActiveSessions", mock.Anything, 50, 0).
-					Return([]*domain.RefreshToken{session1, session2}, int64(2), nil)
+					Return([]*auth.RefreshToken{session1, session2}, int64(2), nil)
 			},
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -571,7 +572,7 @@ func TestGetAllSessions(t *testing.T) {
 			queryParams: "?limit=10&offset=5",
 			mockSetup: func(m *MockUserService) {
 				m.On("GetAllActiveSessions", mock.Anything, 10, 5).
-					Return([]*domain.RefreshToken{session1}, int64(20), nil)
+					Return([]*auth.RefreshToken{session1}, int64(20), nil)
 			},
 			expectedStatus: http.StatusOK,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -584,7 +585,7 @@ func TestGetAllSessions(t *testing.T) {
 			queryParams: "",
 			mockSetup: func(m *MockUserService) {
 				m.On("GetAllActiveSessions", mock.Anything, 50, 0).
-					Return([]*domain.RefreshToken(nil), int64(0), fmt.Errorf("database error"))
+					Return([]*auth.RefreshToken(nil), int64(0), fmt.Errorf("database error"))
 			},
 			expectedStatus: http.StatusInternalServerError,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -683,7 +684,7 @@ func TestForceLogout(t *testing.T) {
 			},
 			mockSetup: func(m *MockUserService) {
 				m.On("ForceLogout", mock.Anything, "nonexistent_token").
-					Return(domain.ErrTokenNotFound)
+					Return(auth.ErrTokenNotFound)
 			},
 			expectedStatus: http.StatusNotFound,
 			validateBody: func(t *testing.T, body map[string]interface{}) {

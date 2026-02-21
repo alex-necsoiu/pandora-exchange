@@ -14,7 +14,8 @@ import (
 	reflect "reflect"
 	time "time"
 
-	domain "github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
 	uuid "github.com/google/uuid"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -59,10 +60,10 @@ func (mr *MockUserRepositoryMockRecorder) Count(ctx any) *gomock.Call {
 }
 
 // Create mocks base method.
-func (m *MockUserRepository) Create(ctx context.Context, email, firstName, lastName, hashedPassword string) (*domain.User, error) {
+func (m *MockUserRepository) Create(ctx context.Context, email, firstName, lastName, hashedPassword string) (*user.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", ctx, email, firstName, lastName, hashedPassword)
-	ret0, _ := ret[0].(*domain.User)
+	ret0, _ := ret[0].(*user.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -74,10 +75,10 @@ func (mr *MockUserRepositoryMockRecorder) Create(ctx, email, firstName, lastName
 }
 
 // GetByEmail mocks base method.
-func (m *MockUserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+func (m *MockUserRepository) GetByEmail(ctx context.Context, email string) (*user.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetByEmail", ctx, email)
-	ret0, _ := ret[0].(*domain.User)
+	ret0, _ := ret[0].(*user.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -89,10 +90,10 @@ func (mr *MockUserRepositoryMockRecorder) GetByEmail(ctx, email any) *gomock.Cal
 }
 
 // GetByID mocks base method.
-func (m *MockUserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+func (m *MockUserRepository) GetByID(ctx context.Context, id uuid.UUID) (*user.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetByID", ctx, id)
-	ret0, _ := ret[0].(*domain.User)
+	ret0, _ := ret[0].(*user.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -104,10 +105,10 @@ func (mr *MockUserRepositoryMockRecorder) GetByID(ctx, id any) *gomock.Call {
 }
 
 // GetByIDIncludeDeleted mocks base method.
-func (m *MockUserRepository) GetByIDIncludeDeleted(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+func (m *MockUserRepository) GetByIDIncludeDeleted(ctx context.Context, id uuid.UUID) (*user.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetByIDIncludeDeleted", ctx, id)
-	ret0, _ := ret[0].(*domain.User)
+	ret0, _ := ret[0].(*user.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -119,10 +120,10 @@ func (mr *MockUserRepositoryMockRecorder) GetByIDIncludeDeleted(ctx, id any) *go
 }
 
 // List mocks base method.
-func (m *MockUserRepository) List(ctx context.Context, limit, offset int) ([]*domain.User, error) {
+func (m *MockUserRepository) List(ctx context.Context, limit, offset int) ([]*user.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "List", ctx, limit, offset)
-	ret0, _ := ret[0].([]*domain.User)
+	ret0, _ := ret[0].([]*user.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -134,10 +135,10 @@ func (mr *MockUserRepositoryMockRecorder) List(ctx, limit, offset any) *gomock.C
 }
 
 // SearchUsers mocks base method.
-func (m *MockUserRepository) SearchUsers(ctx context.Context, query string, limit, offset int) ([]*domain.User, error) {
+func (m *MockUserRepository) SearchUsers(ctx context.Context, query string, limit, offset int) ([]*user.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SearchUsers", ctx, query, limit, offset)
-	ret0, _ := ret[0].([]*domain.User)
+	ret0, _ := ret[0].([]*user.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -163,10 +164,10 @@ func (mr *MockUserRepositoryMockRecorder) SoftDelete(ctx, id any) *gomock.Call {
 }
 
 // UpdateKYCStatus mocks base method.
-func (m *MockUserRepository) UpdateKYCStatus(ctx context.Context, id uuid.UUID, status domain.KYCStatus) (*domain.User, error) {
+func (m *MockUserRepository) UpdateKYCStatus(ctx context.Context, id uuid.UUID, status user.KYCStatus) (*user.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateKYCStatus", ctx, id, status)
-	ret0, _ := ret[0].(*domain.User)
+	ret0, _ := ret[0].(*user.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -178,10 +179,10 @@ func (mr *MockUserRepositoryMockRecorder) UpdateKYCStatus(ctx, id, status any) *
 }
 
 // UpdateProfile mocks base method.
-func (m *MockUserRepository) UpdateProfile(ctx context.Context, id uuid.UUID, firstName, lastName string) (*domain.User, error) {
+func (m *MockUserRepository) UpdateProfile(ctx context.Context, id uuid.UUID, firstName, lastName string) (*user.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateProfile", ctx, id, firstName, lastName)
-	ret0, _ := ret[0].(*domain.User)
+	ret0, _ := ret[0].(*user.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -193,10 +194,10 @@ func (mr *MockUserRepositoryMockRecorder) UpdateProfile(ctx, id, firstName, last
 }
 
 // UpdateRole mocks base method.
-func (m *MockUserRepository) UpdateRole(ctx context.Context, id uuid.UUID, role domain.Role) (*domain.User, error) {
+func (m *MockUserRepository) UpdateRole(ctx context.Context, id uuid.UUID, role user.Role) (*user.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateRole", ctx, id, role)
-	ret0, _ := ret[0].(*domain.User)
+	ret0, _ := ret[0].(*user.User)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -262,10 +263,10 @@ func (mr *MockRefreshTokenRepositoryMockRecorder) CountAllActiveSessions(ctx any
 }
 
 // Create mocks base method.
-func (m *MockRefreshTokenRepository) Create(ctx context.Context, token string, userID uuid.UUID, expiresAt time.Time, ipAddress, userAgent string) (*domain.RefreshToken, error) {
+func (m *MockRefreshTokenRepository) Create(ctx context.Context, token string, userID uuid.UUID, expiresAt time.Time, ipAddress, userAgent string) (*auth.RefreshToken, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Create", ctx, token, userID, expiresAt, ipAddress, userAgent)
-	ret0, _ := ret[0].(*domain.RefreshToken)
+	ret0, _ := ret[0].(*auth.RefreshToken)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -291,10 +292,10 @@ func (mr *MockRefreshTokenRepositoryMockRecorder) DeleteExpired(ctx any) *gomock
 }
 
 // GetActiveTokensForUser mocks base method.
-func (m *MockRefreshTokenRepository) GetActiveTokensForUser(ctx context.Context, userID uuid.UUID) ([]*domain.RefreshToken, error) {
+func (m *MockRefreshTokenRepository) GetActiveTokensForUser(ctx context.Context, userID uuid.UUID) ([]*auth.RefreshToken, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetActiveTokensForUser", ctx, userID)
-	ret0, _ := ret[0].([]*domain.RefreshToken)
+	ret0, _ := ret[0].([]*auth.RefreshToken)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -306,10 +307,10 @@ func (mr *MockRefreshTokenRepositoryMockRecorder) GetActiveTokensForUser(ctx, us
 }
 
 // GetAllActiveSessions mocks base method.
-func (m *MockRefreshTokenRepository) GetAllActiveSessions(ctx context.Context, limit, offset int) ([]*domain.RefreshToken, error) {
+func (m *MockRefreshTokenRepository) GetAllActiveSessions(ctx context.Context, limit, offset int) ([]*auth.RefreshToken, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetAllActiveSessions", ctx, limit, offset)
-	ret0, _ := ret[0].([]*domain.RefreshToken)
+	ret0, _ := ret[0].([]*auth.RefreshToken)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -321,10 +322,10 @@ func (mr *MockRefreshTokenRepositoryMockRecorder) GetAllActiveSessions(ctx, limi
 }
 
 // GetByToken mocks base method.
-func (m *MockRefreshTokenRepository) GetByToken(ctx context.Context, token string) (*domain.RefreshToken, error) {
+func (m *MockRefreshTokenRepository) GetByToken(ctx context.Context, token string) (*auth.RefreshToken, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetByToken", ctx, token)
-	ret0, _ := ret[0].(*domain.RefreshToken)
+	ret0, _ := ret[0].(*auth.RefreshToken)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

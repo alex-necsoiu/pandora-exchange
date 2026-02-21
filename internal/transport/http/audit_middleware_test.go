@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/alex-necsoiu/pandora-exchange/internal/config"
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/audit"
 	"github.com/alex-necsoiu/pandora-exchange/internal/mocks"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	"github.com/gin-gonic/gin"
@@ -29,14 +29,14 @@ func TestAuditMiddleware_AuthenticatedUser(t *testing.T) {
 	}
 
 	// Mock expects audit log creation
-	mockAuditRepo.On("Create", mock.Anything, mock.MatchedBy(func(log *domain.AuditLog) bool {
+	mockAuditRepo.On("Create", mock.Anything, mock.MatchedBy(func(log *audit.Log) bool {
 		// Verify audit log has correct fields
 		return log.EventType == "user.view" &&
-			log.EventCategory == domain.AuditCategoryDataAccess &&
-			log.ActorType == domain.AuditActorUser &&
-			log.Status == domain.AuditStatusSuccess &&
+			log.EventCategory == audit.CategoryDataAccess &&
+			log.ActorType == audit.ActorUser &&
+			log.Status == audit.StatusSuccess &&
 			log.UserID != nil
-	})).Return(&domain.AuditLog{}, nil).Once()
+	})).Return(&audit.Log{}, nil).Once()
 
 	router := gin.New()
 	router.Use(AuditMiddleware(mockAuditRepo, cfg, logger))
@@ -73,11 +73,11 @@ func TestAuditMiddleware_AdminUser(t *testing.T) {
 	}
 
 	// Mock expects admin audit log with critical severity
-	mockAuditRepo.On("Create", mock.Anything, mock.MatchedBy(func(log *domain.AuditLog) bool {
-		return log.ActorType == domain.AuditActorAdmin &&
-			log.Severity == domain.AuditSeverityCritical &&
-			log.EventCategory == domain.AuditCategorySecurity
-	})).Return(&domain.AuditLog{}, nil).Once()
+	mockAuditRepo.On("Create", mock.Anything, mock.MatchedBy(func(log *audit.Log) bool {
+		return log.ActorType == audit.ActorAdmin &&
+			log.Severity == audit.SeverityCritical &&
+			log.EventCategory == audit.CategorySecurity
+	})).Return(&audit.Log{}, nil).Once()
 
 	router := gin.New()
 	router.Use(AuditMiddleware(mockAuditRepo, cfg, logger))
@@ -112,12 +112,12 @@ func TestAuditMiddleware_AnonymousRequest(t *testing.T) {
 	}
 
 	// Mock expects anonymous audit log
-	mockAuditRepo.On("Create", mock.Anything, mock.MatchedBy(func(log *domain.AuditLog) bool {
-		return log.ActorType == domain.AuditActorAPI &&
+	mockAuditRepo.On("Create", mock.Anything, mock.MatchedBy(func(log *audit.Log) bool {
+		return log.ActorType == audit.ActorAPI &&
 			log.UserID == nil &&
 			log.ActorIdentifier != nil &&
 			*log.ActorIdentifier == "anonymous"
-	})).Return(&domain.AuditLog{}, nil).Once()
+	})).Return(&audit.Log{}, nil).Once()
 
 	router := gin.New()
 	router.Use(AuditMiddleware(mockAuditRepo, cfg, logger))
@@ -149,7 +149,7 @@ func TestAuditMiddleware_SkipHealthCheck(t *testing.T) {
 	}
 
 	// Should NOT be called for health check
-	mockAuditRepo.On("Create", mock.Anything, mock.Anything).Return(&domain.AuditLog{}, nil).Maybe()
+	mockAuditRepo.On("Create", mock.Anything, mock.Anything).Return(&audit.Log{}, nil).Maybe()
 
 	router := gin.New()
 	router.Use(AuditMiddleware(mockAuditRepo, cfg, logger))
@@ -181,10 +181,10 @@ func TestAuditMiddleware_FailedRequest(t *testing.T) {
 	}
 
 	// Mock expects failure status
-	mockAuditRepo.On("Create", mock.Anything, mock.MatchedBy(func(log *domain.AuditLog) bool {
-		return log.Status == domain.AuditStatusFailure &&
-			log.Severity == domain.AuditSeverityWarning
-	})).Return(&domain.AuditLog{}, nil).Once()
+	mockAuditRepo.On("Create", mock.Anything, mock.MatchedBy(func(log *audit.Log) bool {
+		return log.Status == audit.StatusFailure &&
+			log.Severity == audit.SeverityWarning
+	})).Return(&audit.Log{}, nil).Once()
 
 	router := gin.New()
 	router.Use(AuditMiddleware(mockAuditRepo, cfg, logger))
@@ -215,9 +215,9 @@ func TestAuditMiddleware_ServerError(t *testing.T) {
 	}
 
 	// Mock expects error status
-	mockAuditRepo.On("Create", mock.Anything, mock.MatchedBy(func(log *domain.AuditLog) bool {
-		return log.Status == domain.AuditStatusError
-	})).Return(&domain.AuditLog{}, nil).Once()
+	mockAuditRepo.On("Create", mock.Anything, mock.MatchedBy(func(log *audit.Log) bool {
+		return log.Status == audit.StatusError
+	})).Return(&audit.Log{}, nil).Once()
 
 	router := gin.New()
 	router.Use(AuditMiddleware(mockAuditRepo, cfg, logger))
@@ -242,77 +242,77 @@ func TestCategorizeRequest(t *testing.T) {
 		path          string
 		method        string
 		expectedType  string
-		expectedCat   domain.AuditEventCategory
+		expectedCat   audit.EventCategory
 	}{
 		{
 			name:         "user registration",
 			path:         "/auth/register",
 			method:       "POST",
 			expectedType: "user.register",
-			expectedCat:  domain.AuditCategoryAuthentication,
+			expectedCat:  audit.CategoryAuthentication,
 		},
 		{
 			name:         "user login",
 			path:         "/auth/login",
 			method:       "POST",
 			expectedType: "user.login",
-			expectedCat:  domain.AuditCategoryAuthentication,
+			expectedCat:  audit.CategoryAuthentication,
 		},
 		{
 			name:         "token refresh",
 			path:         "/auth/refresh",
 			method:       "POST",
 			expectedType: "token.refresh",
-			expectedCat:  domain.AuditCategoryAuthentication,
+			expectedCat:  audit.CategoryAuthentication,
 		},
 		{
 			name:         "user logout",
 			path:         "/auth/logout",
 			method:       "POST",
 			expectedType: "user.logout",
-			expectedCat:  domain.AuditCategoryAuthentication,
+			expectedCat:  audit.CategoryAuthentication,
 		},
 		{
 			name:         "KYC update",
 			path:         "/users/123/kyc",
 			method:       "PUT",
 			expectedType: "user.kyc_update",
-			expectedCat:  domain.AuditCategoryCompliance,
+			expectedCat:  audit.CategoryCompliance,
 		},
 		{
 			name:         "KYC view",
 			path:         "/users/123/kyc",
 			method:       "GET",
 			expectedType: "user.kyc_view",
-			expectedCat:  domain.AuditCategoryDataAccess,
+			expectedCat:  audit.CategoryDataAccess,
 		},
 		{
 			name:         "user view",
 			path:         "/users/123",
 			method:       "GET",
 			expectedType: "user.view",
-			expectedCat:  domain.AuditCategoryDataAccess,
+			expectedCat:  audit.CategoryDataAccess,
 		},
 		{
 			name:         "user update",
 			path:         "/users/123",
 			method:       "PUT",
 			expectedType: "user.update",
-			expectedCat:  domain.AuditCategoryDataModification,
+			expectedCat:  audit.CategoryDataModification,
 		},
 		{
 			name:         "user delete",
 			path:         "/users/123",
 			method:       "DELETE",
 			expectedType: "user.delete",
-			expectedCat:  domain.AuditCategoryDataModification,
+			expectedCat:  audit.CategoryDataModification,
 		},
 		{
 			name:         "admin endpoint",
 			path:         "/admin/users",
 			method:       "GET",
 			expectedType: "admin.get",
-			expectedCat:  domain.AuditCategorySecurity,
+			expectedCat:  audit.CategorySecurity,
 		},
 	}
 
@@ -335,49 +335,49 @@ func TestDetermineSeverity(t *testing.T) {
 		path             string
 		method           string
 		statusCode       int
-		expectedSeverity domain.AuditSeverity
+		expectedSeverity audit.Severity
 	}{
 		{
 			name:             "admin action - critical",
 			path:             "/admin/users",
 			method:           "GET",
 			statusCode:       200,
-			expectedSeverity: domain.AuditSeverityCritical,
+			expectedSeverity: audit.SeverityCritical,
 		},
 		{
 			name:             "auth failure - high",
 			path:             "/auth/login",
 			method:           "POST",
 			statusCode:       401,
-			expectedSeverity: domain.AuditSeverityHigh,
+			expectedSeverity: audit.SeverityHigh,
 		},
 		{
 			name:             "KYC update - high",
 			path:             "/users/123/kyc",
 			method:           "PUT",
 			statusCode:       200,
-			expectedSeverity: domain.AuditSeverityHigh,
+			expectedSeverity: audit.SeverityHigh,
 		},
 		{
 			name:             "user deletion - high",
 			path:             "/users/123",
 			method:           "DELETE",
 			statusCode:       200,
-			expectedSeverity: domain.AuditSeverityHigh,
+			expectedSeverity: audit.SeverityHigh,
 		},
 		{
 			name:             "client error - warning",
 			path:             "/users/123",
 			method:           "GET",
 			statusCode:       404,
-			expectedSeverity: domain.AuditSeverityWarning,
+			expectedSeverity: audit.SeverityWarning,
 		},
 		{
 			name:             "successful operation - info",
 			path:             "/users/123",
 			method:           "GET",
 			statusCode:       200,
-			expectedSeverity: domain.AuditSeverityInfo,
+			expectedSeverity: audit.SeverityInfo,
 		},
 	}
 
@@ -400,16 +400,16 @@ func TestDetermineSeverity(t *testing.T) {
 func TestDetermineStatus(t *testing.T) {
 	tests := []struct {
 		statusCode     int
-		expectedStatus domain.AuditStatus
+		expectedStatus audit.Status
 	}{
-		{200, domain.AuditStatusSuccess},
-		{201, domain.AuditStatusSuccess},
-		{204, domain.AuditStatusSuccess},
-		{400, domain.AuditStatusFailure},
-		{401, domain.AuditStatusFailure},
-		{404, domain.AuditStatusFailure},
-		{500, domain.AuditStatusError},
-		{502, domain.AuditStatusError},
+		{200, audit.StatusSuccess},
+		{201, audit.StatusSuccess},
+		{204, audit.StatusSuccess},
+		{400, audit.StatusFailure},
+		{401, audit.StatusFailure},
+		{404, audit.StatusFailure},
+		{500, audit.StatusError},
+		{502, audit.StatusError},
 	}
 
 	for _, tt := range tests {
@@ -481,9 +481,9 @@ func TestAuditMiddleware_WithRequestID(t *testing.T) {
 	requestID := "test-request-123"
 
 	// Mock expects audit log with request ID
-	mockAuditRepo.On("Create", mock.Anything, mock.MatchedBy(func(log *domain.AuditLog) bool {
+	mockAuditRepo.On("Create", mock.Anything, mock.MatchedBy(func(log *audit.Log) bool {
 		return log.RequestID != nil && *log.RequestID == requestID
-	})).Return(&domain.AuditLog{}, nil).Once()
+	})).Return(&audit.Log{}, nil).Once()
 
 	router := gin.New()
 	router.Use(AuditMiddleware(mockAuditRepo, cfg, logger))
@@ -517,11 +517,11 @@ func TestAuditMiddleware_CapturesIPAndUserAgent(t *testing.T) {
 	userAgent := "Mozilla/5.0 Test Browser"
 
 	// Mock expects audit log with IP and user agent
-	mockAuditRepo.On("Create", mock.Anything, mock.MatchedBy(func(log *domain.AuditLog) bool {
+	mockAuditRepo.On("Create", mock.Anything, mock.MatchedBy(func(log *audit.Log) bool {
 		return log.IPAddress != nil &&
 			log.UserAgent != nil &&
 			*log.UserAgent == userAgent
-	})).Return(&domain.AuditLog{}, nil).Once()
+	})).Return(&audit.Log{}, nil).Once()
 
 	router := gin.New()
 	router.Use(AuditMiddleware(mockAuditRepo, cfg, logger))
@@ -554,7 +554,7 @@ func TestAuditMiddleware_RetentionPeriod(t *testing.T) {
 	}
 
 	// Mock expects audit log with correct retention period
-	mockAuditRepo.On("Create", mock.Anything, mock.MatchedBy(func(log *domain.AuditLog) bool {
+	mockAuditRepo.On("Create", mock.Anything, mock.MatchedBy(func(log *audit.Log) bool {
 		if log.RetentionUntil == nil {
 			return false
 		}
@@ -565,7 +565,7 @@ func TestAuditMiddleware_RetentionPeriod(t *testing.T) {
 		
 		// Allow 1 minute tolerance for test execution time
 		return diff < time.Minute && diff > -time.Minute
-	})).Return(&domain.AuditLog{}, nil).Once()
+	})).Return(&audit.Log{}, nil).Once()
 
 	router := gin.New()
 	router.Use(AuditMiddleware(mockAuditRepo, cfg, logger))

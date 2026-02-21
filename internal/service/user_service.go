@@ -6,36 +6,37 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
 	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/common"
+	userDomain "github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	"github.com/google/uuid"
 )
 
-// Compile-time check to ensure UserService implements domain.UserService
-var _ domain.UserService = (*UserService)(nil)
+// Compile-time check to ensure UserService implements userDomain.Service
+var _ userDomain.Service = (*UserService)(nil)
 
-// UserService implements domain.UserService
+// UserService implements userDomain.Service
 type UserService struct {
-	userRepo           domain.UserRepository
-	refreshTokenRepo   domain.RefreshTokenRepository
+	userRepo           userDomain.Repository
+	refreshTokenRepo   auth.TokenRepository
 	jwtManager         *auth.JWTManager
 	accessTokenExpiry  time.Duration
 	refreshTokenExpiry time.Duration
 	logger             *observability.Logger
 	auditLogger        *observability.AuditLogger
-	eventPublisher     domain.EventPublisher
+	eventPublisher     common.EventPublisher
 }
 
 // NewUserService creates a new UserService instance
 func NewUserService(
-	userRepo domain.UserRepository,
-	refreshTokenRepo domain.RefreshTokenRepository,
+	userRepo userDomain.Repository,
+	refreshTokenRepo auth.TokenRepository,
 	jwtSecret string,
 	accessTokenExpiry time.Duration,
 	refreshTokenExpiry time.Duration,
 	logger *observability.Logger,
-	eventPublisher domain.EventPublisher,
+	eventPublisher common.EventPublisher,
 ) (*UserService, error) {
 	jwtManager, err := auth.NewJWTManager(jwtSecret, accessTokenExpiry, refreshTokenExpiry)
 	if err != nil {
@@ -60,7 +61,7 @@ func NewUserService(
 }
 
 // Register creates a new user account
-func (s *UserService) Register(ctx context.Context, email, password, firstName, lastName string) (*domain.User, error) {
+func (s *UserService) Register(ctx context.Context, email, password, firstName, lastName string) (*userDomain.User, error) {
 	s.logger.WithField("email", email).Info("user registration started")
 
 	if email == "" {
@@ -90,7 +91,7 @@ func (s *UserService) Register(ctx context.Context, email, password, firstName, 
 	// Create user in repository
 	user, err := s.userRepo.Create(ctx, email, firstName, lastName, hashedPassword)
 	if err != nil {
-		if errors.Is(err, domain.ErrUserAlreadyExists) {
+		if errors.Is(err, userDomain.ErrAlreadyExists) {
 			s.logger.WithField("email", email).Warn("registration failed: user already exists")
 		} else {
 			s.logger.WithError(err).WithField("email", email).Error("failed to create user in repository")
@@ -100,7 +101,7 @@ func (s *UserService) Register(ctx context.Context, email, password, firstName, 
 
 	// Publish user registered event
 	if s.eventPublisher != nil {
-		event := domain.NewEvent(domain.EventTypeUserRegistered, user.ID, map[string]interface{}{
+		event := userDomain.NewEvent(userDomain.EventTypeUserRegistered, user.ID, map[string]interface{}{
 			"email":      user.Email,
 			"first_name": user.FirstName,
 			"last_name":  user.LastName,
@@ -129,7 +130,7 @@ func (s *UserService) Register(ctx context.Context, email, password, firstName, 
 }
 
 // Login authenticates a user and returns access/refresh tokens
-func (s *UserService) Login(ctx context.Context, email, password, ipAddress, userAgent string) (*domain.TokenPair, error) {
+func (s *UserService) Login(ctx context.Context, email, password, ipAddress, userAgent string) (*userDomain.TokenPair, error) {
 	s.logger.WithFields(map[string]interface{}{
 		"email":      email,
 		"ip_address": ipAddress,
@@ -139,9 +140,9 @@ func (s *UserService) Login(ctx context.Context, email, password, ipAddress, use
 	// Get user by email
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
-		if errors.Is(err, domain.ErrUserNotFound) {
+		if errors.Is(err, userDomain.ErrNotFound) {
 			s.logger.WithField("email", email).Warn("login failed: user not found")
-			return nil, domain.ErrInvalidCredentials
+			return nil, userDomain.ErrInvalidCredentials
 		}
 		s.logger.WithError(err).WithField("email", email).Error("failed to get user from repository")
 		return nil, fmt.Errorf("failed to get user: %w", err)
@@ -163,7 +164,7 @@ func (s *UserService) Login(ctx context.Context, email, password, ipAddress, use
 				"reason":     "invalid_password",
 			})
 			
-			return nil, domain.ErrInvalidCredentials
+			return nil, userDomain.ErrInvalidCredentials
 		}
 		s.logger.WithError(err).WithField("user_id", user.ID.String()).Error("password verification error")
 		return nil, fmt.Errorf("failed to verify password: %w", err)
@@ -193,7 +194,7 @@ func (s *UserService) Login(ctx context.Context, email, password, ipAddress, use
 
 	// Publish user logged in event
 	if s.eventPublisher != nil {
-		event := domain.NewEvent(domain.EventTypeUserLoggedIn, user.ID, map[string]interface{}{
+		event := userDomain.NewEvent(userDomain.EventTypeUserLoggedIn, user.ID, map[string]interface{}{
 			"email":      user.Email,
 			"ip_address": ipAddress,
 			"user_agent": userAgent,
@@ -217,7 +218,7 @@ func (s *UserService) Login(ctx context.Context, email, password, ipAddress, use
 		"ip_address": ipAddress,
 	}).Info("user logged in successfully")
 
-	return &domain.TokenPair{
+	return &userDomain.TokenPair{
 		User:         user,
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
@@ -231,7 +232,7 @@ func (s *UserService) Login(ctx context.Context, email, password, ipAddress, use
 //
 // Security: This prevents regular users from authenticating via admin endpoints.
 // Admin accounts can only login through the admin server (different port/network).
-func (s *UserService) AdminLogin(ctx context.Context, email, password, ipAddress, userAgent string) (*domain.TokenPair, error) {
+func (s *UserService) AdminLogin(ctx context.Context, email, password, ipAddress, userAgent string) (*userDomain.TokenPair, error) {
 	s.logger.WithFields(map[string]interface{}{
 		"email":      email,
 		"ip_address": ipAddress,
@@ -241,7 +242,7 @@ func (s *UserService) AdminLogin(ctx context.Context, email, password, ipAddress
 	// Get user by email
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
-		if errors.Is(err, domain.ErrUserNotFound) {
+		if errors.Is(err, userDomain.ErrNotFound) {
 			s.logger.WithField("email", email).Warn("admin login failed: user not found")
 			
 			// Log security event for failed admin login attempt
@@ -251,7 +252,7 @@ func (s *UserService) AdminLogin(ctx context.Context, email, password, ipAddress
 				"reason":     "user_not_found",
 			})
 			
-			return nil, domain.ErrInvalidCredentials
+			return nil, userDomain.ErrInvalidCredentials
 		}
 		s.logger.WithError(err).WithField("email", email).Error("failed to get user from repository")
 		return nil, fmt.Errorf("failed to get user: %w", err)
@@ -289,7 +290,7 @@ func (s *UserService) AdminLogin(ctx context.Context, email, password, ipAddress
 				"reason":     "invalid_password",
 			})
 			
-			return nil, domain.ErrInvalidCredentials
+			return nil, userDomain.ErrInvalidCredentials
 		}
 		s.logger.WithError(err).WithField("user_id", user.ID.String()).Error("password verification error")
 		return nil, fmt.Errorf("failed to verify password: %w", err)
@@ -352,7 +353,7 @@ func (s *UserService) AdminLogin(ctx context.Context, email, password, ipAddress
 		"ip_address": ipAddress,
 	}).Info("admin logged in successfully")
 
-	return &domain.TokenPair{
+	return &userDomain.TokenPair{
 		User:         user,
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
@@ -361,7 +362,7 @@ func (s *UserService) AdminLogin(ctx context.Context, email, password, ipAddress
 }
 
 // RefreshToken generates a new token pair from a valid refresh token
-func (s *UserService) RefreshToken(ctx context.Context, refreshToken, ipAddress, userAgent string) (*domain.TokenPair, error) {
+func (s *UserService) RefreshToken(ctx context.Context, refreshToken, ipAddress, userAgent string) (*userDomain.TokenPair, error) {
 	s.logger.WithField("ip_address", ipAddress).Info("token refresh attempt")
 
 	// Get refresh token from database
@@ -383,7 +384,7 @@ func (s *UserService) RefreshToken(ctx context.Context, refreshToken, ipAddress,
 			"ip_address": ipAddress,
 		})
 		
-		return nil, domain.ErrRefreshTokenRevoked
+		return nil, auth.ErrRefreshTokenRevoked
 	}
 
 	// Check if token is expired
@@ -392,7 +393,7 @@ func (s *UserService) RefreshToken(ctx context.Context, refreshToken, ipAddress,
 			"user_id":    tokenRecord.UserID.String(),
 			"expires_at": tokenRecord.ExpiresAt,
 		}).Warn("refresh token is expired")
-		return nil, domain.ErrRefreshTokenExpired
+		return nil, auth.ErrRefreshTokenExpired
 	}
 
 	// Get user
@@ -441,7 +442,7 @@ func (s *UserService) RefreshToken(ctx context.Context, refreshToken, ipAddress,
 		"ip_address": ipAddress,
 	}).Info("token refreshed successfully")
 
-	return &domain.TokenPair{
+	return &userDomain.TokenPair{
 		User:         user,
 		AccessToken:  newAccessToken,
 		RefreshToken: newRefreshToken,
@@ -486,12 +487,12 @@ func (s *UserService) LogoutAll(ctx context.Context, userID uuid.UUID) error {
 }
 
 // GetByID retrieves a user by ID
-func (s *UserService) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+func (s *UserService) GetByID(ctx context.Context, id uuid.UUID) (*userDomain.User, error) {
 	s.logger.WithField("user_id", id.String()).Debug("retrieving user by ID")
 	
 	user, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {
-		if errors.Is(err, domain.ErrUserNotFound) {
+		if errors.Is(err, userDomain.ErrNotFound) {
 			s.logger.WithField("user_id", id.String()).Warn("user not found")
 		} else {
 			s.logger.WithError(err).WithField("user_id", id.String()).Error("failed to get user by ID")
@@ -504,12 +505,12 @@ func (s *UserService) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, 
 }
 
 // GetByEmail retrieves a user by their email address
-func (s *UserService) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+func (s *UserService) GetByEmail(ctx context.Context, email string) (*userDomain.User, error) {
 	s.logger.WithField("email", email).Debug("retrieving user by email")
 	
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
-		if errors.Is(err, domain.ErrUserNotFound) {
+		if errors.Is(err, userDomain.ErrNotFound) {
 			s.logger.WithField("email", email).Warn("user not found")
 		} else {
 			s.logger.WithError(err).WithField("email", email).Error("failed to get user by email")
@@ -522,7 +523,7 @@ func (s *UserService) GetByEmail(ctx context.Context, email string) (*domain.Use
 }
 
 // UpdateKYC updates a user's KYC status
-func (s *UserService) UpdateKYC(ctx context.Context, id uuid.UUID, status domain.KYCStatus) (*domain.User, error) {
+func (s *UserService) UpdateKYC(ctx context.Context, id uuid.UUID, status userDomain.KYCStatus) (*userDomain.User, error) {
 	s.logger.WithFields(map[string]interface{}{
 		"user_id":    id.String(),
 		"kyc_status": status,
@@ -539,7 +540,7 @@ func (s *UserService) UpdateKYC(ctx context.Context, id uuid.UUID, status domain
 
 	// Publish KYC updated event
 	if s.eventPublisher != nil {
-		event := domain.NewEvent(domain.EventTypeUserKYCUpdated, user.ID, map[string]interface{}{
+		event := userDomain.NewEvent(userDomain.EventTypeUserKYCUpdated, user.ID, map[string]interface{}{
 			"email":      user.Email,
 			"kyc_status": string(status),
 			"old_status": "", // Could track old status if needed
@@ -564,7 +565,7 @@ func (s *UserService) UpdateKYC(ctx context.Context, id uuid.UUID, status domain
 }
 
 // UpdateProfile updates a user's profile information
-func (s *UserService) UpdateProfile(ctx context.Context, id uuid.UUID, firstName, lastName string) (*domain.User, error) {
+func (s *UserService) UpdateProfile(ctx context.Context, id uuid.UUID, firstName, lastName string) (*userDomain.User, error) {
 	s.logger.WithField("user_id", id.String()).Info("profile update attempt")
 
 	if firstName == "" {
@@ -585,7 +586,7 @@ func (s *UserService) UpdateProfile(ctx context.Context, id uuid.UUID, firstName
 
 	// Publish profile updated event
 	if s.eventPublisher != nil {
-		event := domain.NewEvent(domain.EventTypeUserProfileUpdated, user.ID, map[string]interface{}{
+		event := userDomain.NewEvent(userDomain.EventTypeUserProfileUpdated, user.ID, map[string]interface{}{
 			"email":      user.Email,
 			"first_name": firstName,
 			"last_name":  lastName,
@@ -625,7 +626,7 @@ func (s *UserService) DeleteAccount(ctx context.Context, id uuid.UUID) error {
 
 	// Publish user deleted event
 	if s.eventPublisher != nil {
-		event := domain.NewEvent(domain.EventTypeUserDeleted, id, map[string]interface{}{
+		event := userDomain.NewEvent(userDomain.EventTypeUserDeleted, id, map[string]interface{}{
 			"deleted_at": time.Now().UTC(),
 		})
 		if err := s.eventPublisher.Publish(event); err != nil {
@@ -642,7 +643,7 @@ func (s *UserService) DeleteAccount(ctx context.Context, id uuid.UUID) error {
 }
 
 // GetActiveSessions retrieves all active sessions (refresh tokens) for a user
-func (s *UserService) GetActiveSessions(ctx context.Context, userID uuid.UUID) ([]*domain.RefreshToken, error) {
+func (s *UserService) GetActiveSessions(ctx context.Context, userID uuid.UUID) ([]*auth.RefreshToken, error) {
 	s.logger.WithField("user_id", userID.String()).Debug("retrieving active sessions")
 	
 	sessions, err := s.refreshTokenRepo.GetActiveTokensForUser(ctx, userID)
@@ -660,7 +661,7 @@ func (s *UserService) GetActiveSessions(ctx context.Context, userID uuid.UUID) (
 }
 
 // ListUsers retrieves a paginated list of all users (admin only).
-func (s *UserService) ListUsers(ctx context.Context, limit, offset int) ([]*domain.User, int64, error) {
+func (s *UserService) ListUsers(ctx context.Context, limit, offset int) ([]*userDomain.User, int64, error) {
 	s.logger.WithFields(map[string]interface{}{
 		"limit":  limit,
 		"offset": offset,
@@ -687,7 +688,7 @@ func (s *UserService) ListUsers(ctx context.Context, limit, offset int) ([]*doma
 }
 
 // SearchUsers searches for users by email, first name, or last name (admin only).
-func (s *UserService) SearchUsers(ctx context.Context, query string, limit, offset int) ([]*domain.User, error) {
+func (s *UserService) SearchUsers(ctx context.Context, query string, limit, offset int) ([]*userDomain.User, error) {
 	s.logger.WithFields(map[string]interface{}{
 		"query":  query,
 		"limit":  limit,
@@ -705,7 +706,7 @@ func (s *UserService) SearchUsers(ctx context.Context, query string, limit, offs
 }
 
 // GetUserByIDAdmin retrieves a user by ID including deleted users (admin only).
-func (s *UserService) GetUserByIDAdmin(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+func (s *UserService) GetUserByIDAdmin(ctx context.Context, id uuid.UUID) (*userDomain.User, error) {
 	s.logger.WithField("user_id", id).Debug("Admin: getting user by ID (include deleted)")
 
 	user, err := s.userRepo.GetByIDIncludeDeleted(ctx, id)
@@ -719,7 +720,7 @@ func (s *UserService) GetUserByIDAdmin(ctx context.Context, id uuid.UUID) (*doma
 }
 
 // UpdateUserRole updates a user's role (admin only).
-func (s *UserService) UpdateUserRole(ctx context.Context, id uuid.UUID, role domain.Role) (*domain.User, error) {
+func (s *UserService) UpdateUserRole(ctx context.Context, id uuid.UUID, role userDomain.Role) (*userDomain.User, error) {
 	s.logger.WithFields(map[string]interface{}{
 		"user_id": id,
 		"role":    role,
@@ -727,7 +728,7 @@ func (s *UserService) UpdateUserRole(ctx context.Context, id uuid.UUID, role dom
 
 	// Validate role
 	if !role.IsValid() {
-		return nil, domain.ErrInvalidRole
+		return nil, userDomain.ErrInvalidRole
 	}
 
 	user, err := s.userRepo.UpdateRole(ctx, id, role)
@@ -746,7 +747,7 @@ func (s *UserService) UpdateUserRole(ctx context.Context, id uuid.UUID, role dom
 }
 
 // GetAllActiveSessions retrieves all active sessions across all users (admin only).
-func (s *UserService) GetAllActiveSessions(ctx context.Context, limit, offset int) ([]*domain.RefreshToken, int64, error) {
+func (s *UserService) GetAllActiveSessions(ctx context.Context, limit, offset int) ([]*auth.RefreshToken, int64, error) {
 	s.logger.WithFields(map[string]interface{}{
 		"limit":  limit,
 		"offset": offset,

@@ -5,7 +5,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/common"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	grpcTransport "github.com/alex-necsoiu/pandora-exchange/internal/transport/grpc"
 	"github.com/stretchr/testify/assert"
@@ -263,115 +265,115 @@ func TestErrorInterceptor(t *testing.T) {
 	}{
 		{
 			name:         "user_not_found",
-			handlerErr:   domain.ErrUserNotFound,
+			handlerErr:   user.ErrNotFound,
 			expectedCode: codes.NotFound,
 			expectedMsg:  "user not found",
 		},
 		{
 			name:         "token_not_found",
-			handlerErr:   domain.ErrTokenNotFound,
+			handlerErr:   auth.ErrTokenNotFound,
 			expectedCode: codes.NotFound,
 			expectedMsg:  "token not found",
 		},
 		{
 			name:         "refresh_token_not_found",
-			handlerErr:   domain.ErrRefreshTokenNotFound,
+			handlerErr:   auth.ErrRefreshTokenNotFound,
 			expectedCode: codes.NotFound,
 			expectedMsg:  "refresh token not found",
 		},
 		{
 			name:         "user_already_exists",
-			handlerErr:   domain.ErrUserAlreadyExists,
+			handlerErr:   user.ErrAlreadyExists,
 			expectedCode: codes.AlreadyExists,
 			expectedMsg:  "user already exists",
 		},
 		{
 			name:         "invalid_credentials",
-			handlerErr:   domain.ErrInvalidCredentials,
+			handlerErr:   user.ErrInvalidCredentials,
 			expectedCode: codes.Unauthenticated,
 			expectedMsg:  "invalid email or password",
 		},
 		{
 			name:         "unauthorized",
-			handlerErr:   domain.ErrUnauthorized,
+			handlerErr:   auth.ErrUnauthorized,
 			expectedCode: codes.Unauthenticated,
 			expectedMsg:  "unauthorized",
 		},
 		{
 			name:         "access_token_expired",
-			handlerErr:   domain.ErrAccessTokenExpired,
+			handlerErr:   auth.ErrAccessTokenExpired,
 			expectedCode: codes.Unauthenticated,
 			expectedMsg:  "access token has expired",
 		},
 		{
 			name:         "invalid_access_token",
-			handlerErr:   domain.ErrInvalidAccessToken,
+			handlerErr:   auth.ErrInvalidAccessToken,
 			expectedCode: codes.Unauthenticated,
 			expectedMsg:  "invalid access token",
 		},
 		{
 			name:         "forbidden",
-			handlerErr:   domain.ErrForbidden,
+			handlerErr:   auth.ErrForbidden,
 			expectedCode: codes.PermissionDenied,
 			expectedMsg:  "forbidden",
 		},
 		{
 			name:         "user_deleted",
-			handlerErr:   domain.ErrUserDeleted,
+			handlerErr:   user.ErrDeleted,
 			expectedCode: codes.PermissionDenied,
 			expectedMsg:  "user has been deleted",
 		},
 		{
 			name:         "refresh_token_expired",
-			handlerErr:   domain.ErrRefreshTokenExpired,
+			handlerErr:   auth.ErrRefreshTokenExpired,
 			expectedCode: codes.PermissionDenied,
 			expectedMsg:  "refresh token has expired",
 		},
 		{
 			name:         "refresh_token_revoked",
-			handlerErr:   domain.ErrRefreshTokenRevoked,
+			handlerErr:   auth.ErrRefreshTokenRevoked,
 			expectedCode: codes.PermissionDenied,
 			expectedMsg:  "refresh token has been revoked",
 		},
 		{
 			name:         "invalid_input",
-			handlerErr:   domain.ErrInvalidInput,
+			handlerErr:   user.ErrInvalidInput,
 			expectedCode: codes.InvalidArgument,
 			expectedMsg:  "invalid input",
 		},
 		{
 			name:         "invalid_email",
-			handlerErr:   domain.ErrInvalidEmail,
+			handlerErr:   user.ErrInvalidEmail,
 			expectedCode: codes.InvalidArgument,
 			expectedMsg:  "invalid email format",
 		},
 		{
 			name:         "weak_password",
-			handlerErr:   domain.ErrWeakPassword,
+			handlerErr:   user.ErrWeakPassword,
 			expectedCode: codes.InvalidArgument,
 			expectedMsg:  "password does not meet security requirements",
 		},
 		{
 			name:         "invalid_kyc_status",
-			handlerErr:   domain.ErrInvalidKYCStatus,
+			handlerErr:   user.ErrInvalidKYCStatus,
 			expectedCode: codes.InvalidArgument,
 			expectedMsg:  "invalid KYC status",
 		},
 		{
 			name:         "invalid_role",
-			handlerErr:   domain.ErrInvalidRole,
+			handlerErr:   user.ErrInvalidRole,
 			expectedCode: codes.InvalidArgument,
 			expectedMsg:  "invalid role",
 		},
 		{
 			name:         "invalid_refresh_token",
-			handlerErr:   domain.ErrInvalidRefreshToken,
+			handlerErr:   auth.ErrInvalidRefreshToken,
 			expectedCode: codes.InvalidArgument,
 			expectedMsg:  "invalid refresh token",
 		},
 		{
 			name:         "internal_server_error",
-			handlerErr:   domain.ErrInternalServer,
+			handlerErr:   common.ErrInternalServer,
 			expectedCode: codes.Internal,
 			expectedMsg:  "An unexpected error occurred",
 		},
@@ -429,7 +431,7 @@ func TestErrorInterceptor_WithTraceID(t *testing.T) {
 
 	// Create mock handler
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return nil, domain.ErrUserNotFound
+		return nil, user.ErrNotFound
 	}
 
 	// Create interceptor
@@ -448,8 +450,8 @@ func TestErrorInterceptor_WithTraceID(t *testing.T) {
 
 func TestErrorInterceptor_AppError(t *testing.T) {
 	// Create AppError
-	appErr := domain.NewAppError(
-		domain.ErrInvalidEmail,
+	appErr := common.NewAppError(
+		user.ErrInvalidEmail,
 		"invalid email format",
 		"test-trace-id",
 	).WithDetails(map[string]interface{}{

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/alex-necsoiu/pandora-exchange/internal/config"
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/audit"
 	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
 	"github.com/alex-necsoiu/pandora-exchange/internal/mocks"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
@@ -39,7 +39,7 @@ func setupTestRouter() (*MockUserService, *auth.JWTManager, *mocks.MockAuditRepo
 	mockAuditRepo := &mocks.MockAuditRepository{}
 	
 	// Configure audit mock to accept any Create call (audit middleware will be invoked on every request)
-	mockAuditRepo.On("Create", mock.Anything, mock.Anything).Return(&domain.AuditLog{}, nil).Maybe()
+	mockAuditRepo.On("Create", mock.Anything, mock.Anything).Return(&audit.Log{}, nil).Maybe()
 	
 	jwtManager, err := auth.NewJWTManager(
 		"test-secret-key-must-be-at-least-32-characters-long",

@@ -15,20 +15,20 @@ import (
 
 const (
 	// Argon2id parameters (OWASP recommended for 2024)
-	argon2Time      = 1        // Number of iterations
+	argon2Time      = 1         // Number of iterations
 	argon2Memory    = 64 * 1024 // Memory in KiB (64MB)
-	argon2Threads   = 4        // Number of threads
-	argon2KeyLength = 32       // Length of derived key in bytes
-	argon2SaltSize  = 16       // Salt size in bytes
+	argon2Threads   = 4         // Number of threads
+	argon2KeyLength = 32        // Length of derived key in bytes
+	argon2SaltSize  = 16        // Salt size in bytes
 )
 
 var (
 	// ErrInvalidPassword indicates password verification failed.
 	ErrInvalidPassword = errors.New("invalid password")
-	
+
 	// ErrInvalidHash indicates the hash format is invalid.
 	ErrInvalidHash = errors.New("invalid hash format")
-	
+
 	// ErrEmptyPassword indicates an empty password was provided.
 	ErrEmptyPassword = errors.New("password cannot be empty")
 )

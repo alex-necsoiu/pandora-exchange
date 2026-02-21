@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	"github.com/alex-necsoiu/pandora-exchange/internal/postgres"
 	"github.com/google/uuid"
@@ -19,7 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// UserRepository implements domain.UserRepository using sqlc-generated queries.
+// UserRepository implements user.Repository using sqlc-generated queries.
 // Never exposes sqlc types to the domain layer - all conversions happen here.
 type UserRepository struct {
 	queries *postgres.Queries
@@ -36,8 +36,8 @@ func NewUserRepository(db postgres.DBTX, logger *observability.Logger) *UserRepo
 }
 
 // Create creates a new user with the provided email, first name, last name, and hashed password.
-// Returns domain.ErrUserAlreadyExists if email already exists.
-func (r *UserRepository) Create(ctx context.Context, email, firstName, lastName, hashedPassword string) (*domain.User, error) {
+// Returns user.ErrAlreadyExists if email already exists.
+func (r *UserRepository) Create(ctx context.Context, email, firstName, lastName, hashedPassword string) (*user.User, error) {
 	r.logger.WithField("email", email).Debug("Creating user")
 
 	// Default role is 'user' (handled by SQL query COALESCE)
@@ -52,7 +52,7 @@ func (r *UserRepository) Create(ctx context.Context, email, firstName, lastName,
 		// Check for unique constraint violation (duplicate email)
 		if isDuplicateKeyError(err) {
 			r.logger.WithField("email", email).Warn("User creation failed: email already exists")
-			return nil, domain.ErrUserAlreadyExists
+			return nil, user.ErrAlreadyExists
 		}
 		r.logger.WithFields(map[string]interface{}{
 			"email": email,
@@ -69,15 +69,15 @@ func (r *UserRepository) Create(ctx context.Context, email, firstName, lastName,
 }
 
 // GetByID retrieves a user by their unique ID.
-// Returns domain.ErrUserNotFound if user doesn't exist or is soft-deleted.
-func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+// Returns user.ErrNotFound if user doesn't exist or is soft-deleted.
+func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*user.User, error) {
 	r.logger.WithField("user_id", id).Debug("Getting user by ID")
 	
 	dbUser, err := r.queries.GetUserByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			r.logger.WithField("user_id", id).Debug("User not found")
-			return nil, domain.ErrUserNotFound
+			return nil, user.ErrNotFound
 		}
 		r.logger.WithFields(map[string]interface{}{
 			"user_id": id,
@@ -90,15 +90,15 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Use
 }
 
 // GetByEmail retrieves a user by their email address.
-// Returns domain.ErrUserNotFound if user doesn't exist or is soft-deleted.
-func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+// Returns user.ErrNotFound if user doesn't exist or is soft-deleted.
+func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*user.User, error) {
 	r.logger.WithField("email", email).Debug("Getting user by email")
 	
 	dbUser, err := r.queries.GetUserByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			r.logger.WithField("email", email).Debug("User not found")
-			return nil, domain.ErrUserNotFound
+			return nil, user.ErrNotFound
 		}
 		r.logger.WithFields(map[string]interface{}{
 			"email": email,
@@ -111,15 +111,15 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.
 }
 
 // UpdateKYCStatus updates the KYC verification status for a user.
-// Returns domain.ErrUserNotFound if user doesn't exist.
-// Returns domain.ErrInvalidKYCStatus if status is invalid.
-func (r *UserRepository) UpdateKYCStatus(ctx context.Context, id uuid.UUID, status domain.KYCStatus) (*domain.User, error) {
+// Returns user.ErrNotFound if user doesn't exist.
+// Returns user.ErrInvalidKYCStatus if status is invalid.
+func (r *UserRepository) UpdateKYCStatus(ctx context.Context, id uuid.UUID, status user.KYCStatus) (*user.User, error) {
 	if !status.IsValid() {
 		r.logger.WithFields(map[string]interface{}{
 			"user_id": id,
 			"status":  status,
 		}).Warn("Invalid KYC status")
-		return nil, domain.ErrInvalidKYCStatus
+		return nil, user.ErrInvalidKYCStatus
 	}
 
 	r.logger.WithFields(map[string]interface{}{
@@ -134,7 +134,7 @@ func (r *UserRepository) UpdateKYCStatus(ctx context.Context, id uuid.UUID, stat
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			r.logger.WithField("user_id", id).Debug("User not found for KYC update")
-			return nil, domain.ErrUserNotFound
+			return nil, user.ErrNotFound
 		}
 		r.logger.WithFields(map[string]interface{}{
 			"user_id": id,
@@ -152,8 +152,8 @@ func (r *UserRepository) UpdateKYCStatus(ctx context.Context, id uuid.UUID, stat
 }
 
 // UpdateProfile updates the user's profile information (first name and last name).
-// Returns domain.ErrUserNotFound if user doesn't exist.
-func (r *UserRepository) UpdateProfile(ctx context.Context, id uuid.UUID, firstName, lastName string) (*domain.User, error) {
+// Returns user.ErrNotFound if user doesn't exist.
+func (r *UserRepository) UpdateProfile(ctx context.Context, id uuid.UUID, firstName, lastName string) (*user.User, error) {
 	r.logger.WithField("user_id", id).Debug("Updating user profile")
 
 	dbUser, err := r.queries.UpdateUserProfile(ctx, postgres.UpdateUserProfileParams{
@@ -164,7 +164,7 @@ func (r *UserRepository) UpdateProfile(ctx context.Context, id uuid.UUID, firstN
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			r.logger.WithField("user_id", id).Debug("User not found for profile update")
-			return nil, domain.ErrUserNotFound
+			return nil, user.ErrNotFound
 		}
 		r.logger.WithFields(map[string]interface{}{
 			"user_id": id,
@@ -178,7 +178,7 @@ func (r *UserRepository) UpdateProfile(ctx context.Context, id uuid.UUID, firstN
 }
 
 // SoftDelete marks a user as deleted without removing the record.
-// Returns domain.ErrUserNotFound if user doesn't exist or is already deleted.
+// Returns user.ErrNotFound if user doesn't exist or is already deleted.
 func (r *UserRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
 	r.logger.WithField("user_id", id).Debug("Soft deleting user")
 	
@@ -186,7 +186,7 @@ func (r *UserRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
 			r.logger.WithField("user_id", id).Debug("User not found for deletion")
-			return domain.ErrUserNotFound
+			return user.ErrNotFound
 		}
 		r.logger.WithFields(map[string]interface{}{
 			"user_id": id,
@@ -197,7 +197,7 @@ func (r *UserRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
 
 	if rowsAffected == 0 {
 		r.logger.WithField("user_id", id).Debug("User not found for deletion (no rows affected)")
-		return domain.ErrUserNotFound
+		return user.ErrNotFound
 	}
 
 	r.logger.WithField("user_id", id).Info("User soft deleted successfully")
@@ -206,7 +206,7 @@ func (r *UserRepository) SoftDelete(ctx context.Context, id uuid.UUID) error {
 
 // List retrieves a paginated list of active users.
 // Returns empty slice if no users found.
-func (r *UserRepository) List(ctx context.Context, limit, offset int) ([]*domain.User, error) {
+func (r *UserRepository) List(ctx context.Context, limit, offset int) ([]*user.User, error) {
 	r.logger.WithFields(map[string]interface{}{
 		"limit":  limit,
 		"offset": offset,
@@ -233,7 +233,7 @@ func (r *UserRepository) List(ctx context.Context, limit, offset int) ([]*domain
 		return nil, fmt.Errorf("failed to list users: %w", err)
 	}
 
-	users := make([]*domain.User, len(dbUsers))
+	users := make([]*user.User, len(dbUsers))
 	for i, dbUser := range dbUsers {
 		users[i] = dbUserToDomain(&dbUser)
 	}
@@ -262,15 +262,15 @@ func (r *UserRepository) Count(ctx context.Context) (int64, error) {
 
 // dbUserToDomain converts a database User model to a domain User model.
 // Handles conversion of database-specific types (pgtype) to Go standard types.
-func dbUserToDomain(dbUser *postgres.User) *domain.User {
-	user := &domain.User{
+func dbUserToDomain(dbUser *postgres.User) *user.User {
+	user := &user.User{
 		ID:             dbUser.ID,
 		Email:          dbUser.Email,
 		FirstName:      dbUser.FirstName,
 		LastName:       dbUser.LastName,
 		HashedPassword: dbUser.HashedPassword,
-		Role:           domain.Role(dbUser.Role),
-		KYCStatus:      domain.KYCStatus(dbUser.KycStatus),
+		Role:           user.Role(dbUser.Role),
+		KYCStatus:      user.KYCStatus(dbUser.KycStatus),
 		CreatedAt:      pgTimestampToTime(dbUser.CreatedAt),
 		UpdatedAt:      pgTimestampToTime(dbUser.UpdatedAt),
 	}
@@ -307,7 +307,7 @@ func isDuplicateKeyError(err error) bool {
 
 // SearchUsers searches users by email, first name, or last name with pagination.
 // Admin-only operation for user management.
-func (r *UserRepository) SearchUsers(ctx context.Context, query string, limit, offset int) ([]*domain.User, error) {
+func (r *UserRepository) SearchUsers(ctx context.Context, query string, limit, offset int) ([]*user.User, error) {
 	r.logger.WithFields(map[string]interface{}{
 		"query":  query,
 		"limit":  limit,
@@ -332,7 +332,7 @@ func (r *UserRepository) SearchUsers(ctx context.Context, query string, limit, o
 		return nil, fmt.Errorf("failed to search users: %w", err)
 	}
 
-	users := make([]*domain.User, len(dbUsers))
+	users := make([]*user.User, len(dbUsers))
 	for i, dbUser := range dbUsers {
 		users[i] = dbUserToDomain(&dbUser)
 	}
@@ -342,14 +342,14 @@ func (r *UserRepository) SearchUsers(ctx context.Context, query string, limit, o
 }
 
 // UpdateRole updates a user's role (admin-only operation).
-func (r *UserRepository) UpdateRole(ctx context.Context, id uuid.UUID, role domain.Role) (*domain.User, error) {
+func (r *UserRepository) UpdateRole(ctx context.Context, id uuid.UUID, role user.Role) (*user.User, error) {
 	// Validate role before database operation
 	if !role.IsValid() {
 		r.logger.WithFields(map[string]interface{}{
 			"user_id": id,
 			"role":    role,
 		}).Warn("Invalid role")
-		return nil, domain.ErrInvalidRole
+		return nil, user.ErrInvalidRole
 	}
 
 	r.logger.WithFields(map[string]interface{}{
@@ -364,7 +364,7 @@ func (r *UserRepository) UpdateRole(ctx context.Context, id uuid.UUID, role doma
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			r.logger.WithField("user_id", id).Debug("User not found for role update")
-			return nil, domain.ErrUserNotFound
+			return nil, user.ErrNotFound
 		}
 		r.logger.WithError(err).Error("Failed to update user role")
 		return nil, fmt.Errorf("failed to update user role: %w", err)
@@ -376,14 +376,14 @@ func (r *UserRepository) UpdateRole(ctx context.Context, id uuid.UUID, role doma
 
 // GetByIDIncludeDeleted retrieves a user by ID including soft-deleted users.
 // Admin-only operation for user recovery or audit purposes.
-func (r *UserRepository) GetByIDIncludeDeleted(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+func (r *UserRepository) GetByIDIncludeDeleted(ctx context.Context, id uuid.UUID) (*user.User, error) {
 	r.logger.WithField("user_id", id).Debug("Getting user by ID (include deleted)")
 
 	dbUser, err := r.queries.GetUserByIDIncludeDeleted(ctx, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			r.logger.WithField("user_id", id).Debug("User not found")
-			return nil, domain.ErrUserNotFound
+			return nil, user.ErrNotFound
 		}
 		r.logger.WithError(err).Error("Failed to get user")
 		return nil, fmt.Errorf("failed to get user: %w", err)

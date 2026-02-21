@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/netip"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/audit"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	"github.com/alex-necsoiu/pandora-exchange/internal/postgres"
 	"github.com/google/uuid"
@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// AuditRepository implements domain.AuditRepository using sqlc
+// AuditRepository implements audit.Repository using sqlc
 type AuditRepository struct {
 	pool    *pgxpool.Pool
 	queries *postgres.Queries
@@ -31,7 +31,7 @@ func NewAuditRepository(pool *pgxpool.Pool, logger *observability.Logger) *Audit
 }
 
 // Create creates a new immutable audit log entry
-func (r *AuditRepository) Create(ctx context.Context, log *domain.AuditLog) (*domain.AuditLog, error) {
+func (r *AuditRepository) Create(ctx context.Context, log *audit.Log) (*audit.Log, error) {
 	// Marshal JSONB fields
 	metadataJSON, err := marshalJSON(log.Metadata)
 	if err != nil {
@@ -104,7 +104,7 @@ func (r *AuditRepository) Create(ctx context.Context, log *domain.AuditLog) (*do
 }
 
 // GetByID retrieves an audit log by ID
-func (r *AuditRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.AuditLog, error) {
+func (r *AuditRepository) GetByID(ctx context.Context, id uuid.UUID) (*audit.Log, error) {
 	log, err := r.queries.GetAuditLogByID(ctx, id)
 	if err != nil {
 		r.logger.WithError(err).WithField("id", id.String()).Error("failed to get audit log")
@@ -115,7 +115,7 @@ func (r *AuditRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Au
 }
 
 // ListByUser retrieves audit logs for a specific user
-func (r *AuditRepository) ListByUser(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]*domain.AuditLog, error) {
+func (r *AuditRepository) ListByUser(ctx context.Context, userID uuid.UUID, limit, offset int32) ([]*audit.Log, error) {
 	logs, err := r.queries.ListAuditLogsByUser(ctx, postgres.ListAuditLogsByUserParams{
 		UserID: pgtype.UUID{Bytes: userID, Valid: true},
 		Limit:  limit,
@@ -130,7 +130,7 @@ func (r *AuditRepository) ListByUser(ctx context.Context, userID uuid.UUID, limi
 }
 
 // ListByEventType retrieves audit logs by event type
-func (r *AuditRepository) ListByEventType(ctx context.Context, eventType string, limit, offset int32) ([]*domain.AuditLog, error) {
+func (r *AuditRepository) ListByEventType(ctx context.Context, eventType string, limit, offset int32) ([]*audit.Log, error) {
 	logs, err := r.queries.ListAuditLogsByEventType(ctx, postgres.ListAuditLogsByEventTypeParams{
 		EventType: eventType,
 		Limit:     limit,
@@ -145,7 +145,7 @@ func (r *AuditRepository) ListByEventType(ctx context.Context, eventType string,
 }
 
 // ListByCategory retrieves audit logs by category
-func (r *AuditRepository) ListByCategory(ctx context.Context, category domain.AuditEventCategory, limit, offset int32) ([]*domain.AuditLog, error) {
+func (r *AuditRepository) ListByCategory(ctx context.Context, category audit.EventCategory, limit, offset int32) ([]*audit.Log, error) {
 	logs, err := r.queries.ListAuditLogsByCategory(ctx, postgres.ListAuditLogsByCategoryParams{
 		EventCategory: string(category),
 		Limit:         limit,
@@ -160,7 +160,7 @@ func (r *AuditRepository) ListByCategory(ctx context.Context, category domain.Au
 }
 
 // ListByIPAddress retrieves audit logs from a specific IP
-func (r *AuditRepository) ListByIPAddress(ctx context.Context, ipAddress string, limit, offset int32) ([]*domain.AuditLog, error) {
+func (r *AuditRepository) ListByIPAddress(ctx context.Context, ipAddress string, limit, offset int32) ([]*audit.Log, error) {
 	addr, err := netip.ParseAddr(ipAddress)
 	if err != nil {
 		return nil, fmt.Errorf("invalid IP address: %w", err)
@@ -180,7 +180,7 @@ func (r *AuditRepository) ListByIPAddress(ctx context.Context, ipAddress string,
 }
 
 // ListByResource retrieves audit logs for a specific resource
-func (r *AuditRepository) ListByResource(ctx context.Context, resourceType, resourceID string, limit, offset int32) ([]*domain.AuditLog, error) {
+func (r *AuditRepository) ListByResource(ctx context.Context, resourceType, resourceID string, limit, offset int32) ([]*audit.Log, error) {
 	logs, err := r.queries.ListAuditLogsByResource(ctx, postgres.ListAuditLogsByResourceParams{
 		ResourceType: &resourceType,
 		ResourceID:   &resourceID,
@@ -199,7 +199,7 @@ func (r *AuditRepository) ListByResource(ctx context.Context, resourceType, reso
 }
 
 // Search performs a filtered search across audit logs
-func (r *AuditRepository) Search(ctx context.Context, filter *domain.AuditLogFilter) ([]*domain.AuditLog, error) {
+func (r *AuditRepository) Search(ctx context.Context, filter *audit.Filter) ([]*audit.Log, error) {
 	params := postgres.SearchAuditLogsParams{
 		Limit:  filter.Limit,
 		Offset: filter.Offset,
@@ -257,7 +257,7 @@ func (r *AuditRepository) CountByEventType(ctx context.Context, eventType string
 }
 
 // CountSearch counts results matching filter criteria
-func (r *AuditRepository) CountSearch(ctx context.Context, filter *domain.AuditLogFilter) (int64, error) {
+func (r *AuditRepository) CountSearch(ctx context.Context, filter *audit.Filter) (int64, error) {
 	params := postgres.CountSearchAuditLogsParams{}
 
 	if filter.UserID != nil {
@@ -288,7 +288,7 @@ func (r *AuditRepository) CountSearch(ctx context.Context, filter *domain.AuditL
 }
 
 // GetRecentSecurityEvents retrieves recent high-severity security events
-func (r *AuditRepository) GetRecentSecurityEvents(ctx context.Context) ([]*domain.AuditLog, error) {
+func (r *AuditRepository) GetRecentSecurityEvents(ctx context.Context) ([]*audit.Log, error) {
 	logs, err := r.queries.GetRecentSecurityEvents(ctx)
 	if err != nil {
 		r.logger.WithError(err).Error("failed to get recent security events")
@@ -299,7 +299,7 @@ func (r *AuditRepository) GetRecentSecurityEvents(ctx context.Context) ([]*domai
 }
 
 // GetFailedLoginAttempts retrieves recent failed login attempts for a user
-func (r *AuditRepository) GetFailedLoginAttempts(ctx context.Context, userID uuid.UUID) ([]*domain.AuditLog, error) {
+func (r *AuditRepository) GetFailedLoginAttempts(ctx context.Context, userID uuid.UUID) ([]*audit.Log, error) {
 	logs, err := r.queries.GetFailedLoginAttempts(ctx, pgtype.UUID{Bytes: userID, Valid: true})
 	if err != nil {
 		r.logger.WithError(err).WithField("user_id", userID.String()).Error("failed to get failed login attempts")
@@ -320,15 +320,15 @@ func (r *AuditRepository) DeleteExpired(ctx context.Context) error {
 }
 
 // toDomainAuditLog converts sqlc AuditLog to domain.AuditLog
-func (r *AuditRepository) toDomainAuditLog(log *postgres.AuditLog) (*domain.AuditLog, error) {
-	domainLog := &domain.AuditLog{
+func (r *AuditRepository) toDomainAuditLog(log *postgres.AuditLog) (*audit.Log, error) {
+	domainLog := &audit.Log{
 		ID:              log.ID,
 		EventType:       log.EventType,
-		EventCategory:   domain.AuditEventCategory(log.EventCategory),
-		Severity:        domain.AuditSeverity(log.Severity),
-		ActorType:       domain.AuditActorType(log.ActorType),
+		EventCategory:   audit.EventCategory(log.EventCategory),
+		Severity:        audit.Severity(log.Severity),
+		ActorType:       audit.ActorType(log.ActorType),
 		Action:          log.Action,
-		Status:          domain.AuditStatus(log.Status),
+		Status:          audit.Status(log.Status),
 		ActorIdentifier: log.ActorIdentifier,
 		ResourceType:    log.ResourceType,
 		ResourceID:      log.ResourceID,
@@ -382,8 +382,8 @@ func (r *AuditRepository) toDomainAuditLog(log *postgres.AuditLog) (*domain.Audi
 }
 
 // toDomainAuditLogs converts a slice of sqlc AuditLogs to domain.AuditLogs
-func (r *AuditRepository) toDomainAuditLogs(logs []postgres.AuditLog) ([]*domain.AuditLog, error) {
-	domainLogs := make([]*domain.AuditLog, 0, len(logs))
+func (r *AuditRepository) toDomainAuditLogs(logs []postgres.AuditLog) ([]*audit.Log, error) {
+	domainLogs := make([]*audit.Log, 0, len(logs))
 	for i := range logs {
 		domainLog, err := r.toDomainAuditLog(&logs[i])
 		if err != nil {

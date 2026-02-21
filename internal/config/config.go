@@ -33,15 +33,15 @@ const (
 
 // Config holds all configuration for the User Service
 type Config struct {
-	AppEnv      string            `mapstructure:"APP_ENV"`
-	Server      ServerConfig      `mapstructure:",squash"`
-	Database    DatabaseConfig    `mapstructure:",squash"`
-	JWT         JWTConfig         `mapstructure:",squash"`
-	Redis       RedisConfig       `mapstructure:",squash"`
-	Tracing     TracingConfig     `mapstructure:",squash"`
-	Audit       AuditConfig       `mapstructure:",squash"`
-	Vault       VaultConfig       `mapstructure:",squash"`
-	RateLimit   RateLimitConfig   `mapstructure:",squash"`
+	AppEnv    string          `mapstructure:"APP_ENV"`
+	Server    ServerConfig    `mapstructure:",squash"`
+	Database  DatabaseConfig  `mapstructure:",squash"`
+	JWT       JWTConfig       `mapstructure:",squash"`
+	Redis     RedisConfig     `mapstructure:",squash"`
+	Tracing   TracingConfig   `mapstructure:",squash"`
+	Audit     AuditConfig     `mapstructure:",squash"`
+	Vault     VaultConfig     `mapstructure:",squash"`
+	RateLimit RateLimitConfig `mapstructure:",squash"`
 }
 
 // ServerConfig holds HTTP/gRPC server configuration
@@ -95,7 +95,7 @@ type AuditConfig struct {
 	// - audit: 2555 days (7 years for compliance)
 	// - prod: 2555 days (7 years for compliance)
 	RetentionDays int `mapstructure:"AUDIT_LOGS_KEEP_FOR_DAYS"`
-	
+
 	// CleanupInterval specifies how often to run the cleanup job (in hours)
 	// Default: 24 hours (daily cleanup)
 	CleanupInterval time.Duration `mapstructure:"AUDIT_CLEANUP_INTERVAL"`
@@ -107,15 +107,15 @@ type VaultConfig struct {
 	// In dev, typically false (use ENV vars)
 	// In prod, should be true
 	Enabled bool `mapstructure:"VAULT_ENABLED"`
-	
+
 	// Addr is the Vault server address
 	// Example: "http://vault.default.svc.cluster.local:8200"
 	Addr string `mapstructure:"VAULT_ADDR"`
-	
+
 	// Token is the Vault authentication token
 	// In Kubernetes, this is typically injected by Vault Agent
 	Token string `mapstructure:"VAULT_TOKEN"`
-	
+
 	// SecretPath is the base path for secrets in Vault
 	// Example: "secret/data/pandora/user-service"
 	SecretPath string `mapstructure:"VAULT_SECRET_PATH"`
@@ -125,19 +125,19 @@ type VaultConfig struct {
 type RateLimitConfig struct {
 	// RequestsPerWindow is the maximum requests allowed per IP in the time window
 	RequestsPerWindow int `mapstructure:"RATE_LIMIT_REQUESTS_PER_WINDOW"`
-	
+
 	// WindowDuration is the time window for rate limiting (e.g., "1m", "1h")
 	WindowDuration time.Duration `mapstructure:"RATE_LIMIT_WINDOW_DURATION"`
-	
+
 	// EnablePerUserLimits enables per-user rate limiting for authenticated requests
 	EnablePerUserLimits bool `mapstructure:"RATE_LIMIT_ENABLE_PER_USER"`
-	
+
 	// UserRequestsPerWindow is the maximum requests allowed per user (when EnablePerUserLimits is true)
 	UserRequestsPerWindow int `mapstructure:"RATE_LIMIT_USER_REQUESTS_PER_WINDOW"`
-	
+
 	// LoginRequestsPerWindow is the maximum login attempts per IP
 	LoginRequestsPerWindow int `mapstructure:"RATE_LIMIT_LOGIN_REQUESTS"`
-	
+
 	// LoginWindowDuration is the time window for login rate limiting
 	LoginWindowDuration time.Duration `mapstructure:"RATE_LIMIT_LOGIN_WINDOW"`
 }
@@ -167,7 +167,7 @@ func Load() (*Config, error) {
 	v.SetDefault("VAULT_ENABLED", false)
 	v.SetDefault("VAULT_ADDR", "http://localhost:8200")
 	v.SetDefault("VAULT_SECRET_PATH", "secret/data/pandora/user-service")
-	
+
 	// Rate limiting defaults
 	v.SetDefault("RATE_LIMIT_REQUESTS_PER_WINDOW", 100)
 	v.SetDefault("RATE_LIMIT_WINDOW_DURATION", "1m")
@@ -178,7 +178,7 @@ func Load() (*Config, error) {
 
 	// Bind environment variables explicitly
 	v.AutomaticEnv()
-	
+
 	// Bind all environment variables explicitly
 	envVars := []string{
 		"APP_ENV",
@@ -331,7 +331,7 @@ func loadFromYAML(filename string) (*Config, error) {
 	if strings.Contains(filename, "..") {
 		return nil, fmt.Errorf("invalid config file path: path traversal detected")
 	}
-	
+
 	data, err := os.ReadFile(filename) // #nosec G304 -- filename is from CONFIG_FILE env var, validated above
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
@@ -425,21 +425,21 @@ func Validate(cfg *Config) error {
 	// Allow Vault placeholders in dev/test environments
 	isVaultPlaceholder := strings.HasPrefix(cfg.JWT.Secret, "vault://")
 	isDev := cfg.AppEnv == EnvDevelopment || cfg.AppEnv == "test"
-	
+
 	// Check if JWT_SECRET is set
 	if cfg.JWT.Secret == "" {
 		return fmt.Errorf("JWT_SECRET is required")
 	}
-	
+
 	if !isVaultPlaceholder && len(cfg.JWT.Secret) < MinJWTSecretLength {
 		return fmt.Errorf("JWT secret must be at least %d characters long", MinJWTSecretLength)
 	}
-	
+
 	// In production, Vault placeholders must be resolved before validation
 	if isVaultPlaceholder && !isDev {
 		return fmt.Errorf("JWT_SECRET contains unresolved Vault placeholder in %s environment", cfg.AppEnv)
 	}
-	
+
 	if cfg.JWT.AccessTokenExpiry <= 0 {
 		return fmt.Errorf("JWT access token expiry must be positive")
 	}
@@ -512,39 +512,39 @@ func (c *Config) LoadSecretsFromVault(ctx context.Context, vaultClient interface
 		GetSecret(ctx context.Context, path, key, envFallback string) (string, error)
 		Enabled() bool
 	}
-	
+
 	// If vault client is nil or disabled, keep ENV-based config
 	if vaultClient == nil {
 		return nil
 	}
-	
+
 	client, ok := vaultClient.(SecretGetter)
 	if !ok {
 		return fmt.Errorf("invalid vault client type")
 	}
-	
+
 	if !client.Enabled() {
 		// Vault disabled - ENV vars already loaded
 		return nil
 	}
-	
+
 	// Build full secret paths
 	basePath := c.Vault.SecretPath
-	
+
 	// Fetch JWT secret
 	jwtSecret, err := client.GetSecret(ctx, basePath+"/jwt", "secret", "JWT_SECRET")
 	if err != nil {
 		return fmt.Errorf("failed to load JWT secret from vault: %w", err)
 	}
 	c.JWT.Secret = jwtSecret
-	
+
 	// Fetch database password
 	dbPassword, err := client.GetSecret(ctx, basePath+"/database", "password", "DB_PASSWORD")
 	if err != nil {
 		return fmt.Errorf("failed to load database password from vault: %w", err)
 	}
 	c.Database.Password = dbPassword
-	
+
 	// Fetch Redis password (optional - can be empty)
 	redisPassword, err := client.GetSecret(ctx, basePath+"/redis", "password", "REDIS_PASSWORD")
 	if err != nil {
@@ -553,11 +553,11 @@ func (c *Config) LoadSecretsFromVault(ctx context.Context, vaultClient interface
 	} else {
 		c.Redis.Password = redisPassword
 	}
-	
+
 	// Re-validate config after loading secrets
 	if err := Validate(c); err != nil {
 		return fmt.Errorf("config validation failed after loading vault secrets: %w", err)
 	}
-	
+
 	return nil
 }

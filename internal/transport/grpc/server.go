@@ -6,7 +6,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	userDomain "github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	pb "github.com/alex-necsoiu/pandora-exchange/internal/transport/grpc/proto"
 	"github.com/google/uuid"
@@ -18,12 +18,12 @@ import (
 // Server implements the gRPC UserService server
 type Server struct {
 	pb.UnimplementedUserServiceServer
-	userService domain.UserService
+	userService userDomain.Service
 	logger      *observability.Logger
 }
 
 // NewServer creates a new gRPC server instance
-func NewServer(userService domain.UserService, logger *observability.Logger) *Server {
+func NewServer(userService userDomain.Service, logger *observability.Logger) *Server {
 	return &Server{
 		userService: userService,
 		logger:      logger,
@@ -99,7 +99,7 @@ func (s *Server) UpdateKYCStatus(ctx context.Context, req *pb.UpdateKYCRequest) 
 	}
 
 	// Parse KYC status
-	kycStatus := domain.KYCStatus(req.KycStatus)
+	kycStatus := userDomain.KYCStatus(req.KycStatus)
 
 	// Update KYC status
 	user, err := s.userService.UpdateKYC(ctx, userID, kycStatus)
@@ -134,7 +134,7 @@ func (s *Server) ValidateUser(ctx context.Context, req *pb.ValidateUserRequest) 
 	// Get user from service
 	user, err := s.userService.GetByID(ctx, userID)
 	if err != nil {
-		if errors.Is(err, domain.ErrUserNotFound) {
+		if errors.Is(err, userDomain.ErrNotFound) {
 			// User not found - return valid response with is_valid=false
 			return &pb.ValidateUserResponse{
 				IsValid:   false,
@@ -211,17 +211,17 @@ func (s *Server) handleServiceError(err error, context string) error {
 	}).Error("Service error in gRPC handler")
 
 	switch {
-	case errors.Is(err, domain.ErrUserNotFound):
+	case errors.Is(err, userDomain.ErrNotFound):
 		return status.Error(codes.NotFound, "user not found")
-	case errors.Is(err, domain.ErrUserAlreadyExists):
+	case errors.Is(err, userDomain.ErrAlreadyExists):
 		return status.Error(codes.AlreadyExists, "user already exists")
-	case errors.Is(err, domain.ErrInvalidCredentials):
+	case errors.Is(err, userDomain.ErrInvalidCredentials):
 		return status.Error(codes.Unauthenticated, "invalid credentials")
-	case errors.Is(err, domain.ErrInvalidKYCStatus):
+	case errors.Is(err, userDomain.ErrInvalidKYCStatus):
 		return status.Error(codes.InvalidArgument, "invalid KYC status")
-	case errors.Is(err, domain.ErrInvalidEmail):
+	case errors.Is(err, userDomain.ErrInvalidEmail):
 		return status.Error(codes.InvalidArgument, "invalid email format")
-	case errors.Is(err, domain.ErrWeakPassword):
+	case errors.Is(err, userDomain.ErrWeakPassword):
 		return status.Error(codes.InvalidArgument, "password does not meet requirements")
 	default:
 		return status.Error(codes.Internal, "internal server error")
@@ -229,7 +229,7 @@ func (s *Server) handleServiceError(err error, context string) error {
 }
 
 // toProtoUser converts a domain User to a protobuf User
-func toProtoUser(user *domain.User) *pb.User {
+func toProtoUser(user *userDomain.User) *pb.User {
 	protoUser := &pb.User{
 		Id:        user.ID.String(),
 		Email:     user.Email,

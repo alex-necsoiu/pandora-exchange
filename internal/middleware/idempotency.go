@@ -20,10 +20,10 @@ import (
 const (
 	// IdempotencyKeyHeader is the HTTP header name for idempotency keys
 	IdempotencyKeyHeader = "Idempotency-Key"
-	
+
 	// DefaultCacheTTL is the default time-to-live for cached responses
 	DefaultCacheTTL = 24 * time.Hour
-	
+
 	// MaxIdempotencyKeyLength is the maximum allowed length for idempotency keys
 	MaxIdempotencyKeyLength = 255
 )
@@ -41,10 +41,10 @@ type CachedResponse struct {
 type IdempotencyStore interface {
 	// Get retrieves a cached response by key
 	Get(key string) (*CachedResponse, bool)
-	
+
 	// Set stores a response with an expiration time
 	Set(key string, response *CachedResponse, ttl time.Duration)
-	
+
 	// Delete removes a cached response
 	Delete(key string)
 }
@@ -62,10 +62,10 @@ func NewInMemoryStore() *InMemoryStore {
 	store := &InMemoryStore{
 		store: make(map[string]*CachedResponse),
 	}
-	
+
 	// Start background cleanup goroutine
 	go store.cleanup()
-	
+
 	return store
 }
 
@@ -73,17 +73,17 @@ func NewInMemoryStore() *InMemoryStore {
 func (s *InMemoryStore) Get(key string) (*CachedResponse, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	response, exists := s.store[key]
 	if !exists {
 		return nil, false
 	}
-	
+
 	// Check if expired
 	if time.Now().After(response.ExpiresAt) {
 		return nil, false
 	}
-	
+
 	return response, true
 }
 
@@ -91,7 +91,7 @@ func (s *InMemoryStore) Get(key string) (*CachedResponse, bool) {
 func (s *InMemoryStore) Set(key string, response *CachedResponse, ttl time.Duration) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	response.ExpiresAt = time.Now().Add(ttl)
 	s.store[key] = response
 }
@@ -100,7 +100,7 @@ func (s *InMemoryStore) Set(key string, response *CachedResponse, ttl time.Durat
 func (s *InMemoryStore) Delete(key string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	delete(s.store, key)
 }
 
@@ -108,7 +108,7 @@ func (s *InMemoryStore) Delete(key string) {
 func (s *InMemoryStore) cleanup() {
 	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
-	
+
 	for range ticker.C {
 		s.mu.Lock()
 		now := time.Now()
@@ -137,22 +137,22 @@ func (s *InMemoryStore) releaseLock(key string) {
 type IdempotencyConfig struct {
 	// Store is the backing store for cached responses
 	Store IdempotencyStore
-	
+
 	// TTL is the time-to-live for cached responses
 	TTL time.Duration
-	
+
 	// IncludeBody determines whether to include request body in key generation
 	// Set to true for POST/PUT/PATCH requests
 	IncludeBody bool
-	
+
 	// OnlyIdempotentMethods restricts middleware to only safe HTTP methods
 	// If false, applies to all methods
 	OnlyIdempotentMethods bool
-	
+
 	// KeyGenerator is an optional custom key generation function
 	// If nil, the default generator is used
 	KeyGenerator func(c *gin.Context, idempotencyKey string) string
-	
+
 	// Logger is used for logging idempotency operations
 	Logger *observability.Logger
 }
@@ -190,26 +190,26 @@ func IdempotencyMiddleware(config IdempotencyConfig) gin.HandlerFunc {
 	if config.Logger == nil {
 		panic("idempotency middleware requires a logger")
 	}
-	
+
 	// Type assertion to access lock methods (if using InMemoryStore)
 	inMemStore, hasLocks := config.Store.(*InMemoryStore)
-	
+
 	return func(c *gin.Context) {
 		// Extract idempotency key from header
 		idempotencyKey := c.GetHeader(IdempotencyKeyHeader)
-		
+
 		// If no idempotency key, skip middleware
 		if idempotencyKey == "" {
 			c.Next()
 			return
 		}
-		
+
 		// Validate idempotency key
 		if len(idempotencyKey) > MaxIdempotencyKeyLength {
 			config.Logger.WithFields(map[string]interface{}{
 				"key_length": len(idempotencyKey),
 			}).Warn("Idempotency key too long")
-			
+
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error":   "invalid_idempotency_key",
 				"message": "idempotency key exceeds maximum length",
@@ -217,16 +217,16 @@ func IdempotencyMiddleware(config IdempotencyConfig) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		
+
 		// Skip for GET/HEAD/OPTIONS if configured
 		if config.OnlyIdempotentMethods && !isIdempotentMethod(c.Request.Method) {
 			c.Next()
 			return
 		}
-		
+
 		// Generate cache key
 		cacheKey := config.KeyGenerator(c, idempotencyKey)
-		
+
 		// Check if response is cached
 		if cached, found := config.Store.Get(cacheKey); found {
 			config.Logger.WithFields(map[string]interface{}{
@@ -234,7 +234,7 @@ func IdempotencyMiddleware(config IdempotencyConfig) gin.HandlerFunc {
 				"method": c.Request.Method,
 				"path":   c.Request.URL.Path,
 			}).Info("Returning cached idempotent response")
-			
+
 			// Replay cached response
 			for key, values := range cached.Headers {
 				for _, value := range values {
@@ -246,12 +246,12 @@ func IdempotencyMiddleware(config IdempotencyConfig) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		
+
 		// Handle concurrent requests with the same idempotency key
 		// Check if store supports locking (InMemoryStore or RedisStore)
 		var lockAcquired bool
 		var lockReleaser func()
-		
+
 		if hasLocks {
 			// InMemoryStore locking
 			if !inMemStore.acquireLock(cacheKey) {
@@ -259,15 +259,15 @@ func IdempotencyMiddleware(config IdempotencyConfig) gin.HandlerFunc {
 				config.Logger.WithFields(map[string]interface{}{
 					"key": idempotencyKey,
 				}).Info("Concurrent request detected, waiting")
-				
+
 				// Wait for a short time and check if response is now cached
 				time.Sleep(100 * time.Millisecond)
-				
+
 				if cached, found := config.Store.Get(cacheKey); found {
 					config.Logger.WithFields(map[string]interface{}{
 						"key": idempotencyKey,
 					}).Info("Response became available during wait")
-					
+
 					for key, values := range cached.Headers {
 						for _, value := range values {
 							c.Header(key, value)
@@ -278,7 +278,7 @@ func IdempotencyMiddleware(config IdempotencyConfig) gin.HandlerFunc {
 					c.Abort()
 					return
 				}
-				
+
 				// Still not available, return conflict
 				c.JSON(http.StatusConflict, gin.H{
 					"error":   "concurrent_request",
@@ -287,7 +287,7 @@ func IdempotencyMiddleware(config IdempotencyConfig) gin.HandlerFunc {
 				c.Abort()
 				return
 			}
-			
+
 			lockAcquired = true
 			lockReleaser = func() { inMemStore.releaseLock(cacheKey) }
 		} else if redisStore, ok := config.Store.(*RedisStore); ok {
@@ -297,15 +297,15 @@ func IdempotencyMiddleware(config IdempotencyConfig) gin.HandlerFunc {
 				config.Logger.WithFields(map[string]interface{}{
 					"key": idempotencyKey,
 				}).Info("Concurrent request detected (distributed), waiting")
-				
+
 				// Wait for a short time and check if response is now cached
 				time.Sleep(100 * time.Millisecond)
-				
+
 				if cached, found := config.Store.Get(cacheKey); found {
 					config.Logger.WithFields(map[string]interface{}{
 						"key": idempotencyKey,
 					}).Info("Response became available during wait")
-					
+
 					for key, values := range cached.Headers {
 						for _, value := range values {
 							c.Header(key, value)
@@ -316,7 +316,7 @@ func IdempotencyMiddleware(config IdempotencyConfig) gin.HandlerFunc {
 					c.Abort()
 					return
 				}
-				
+
 				// Still not available, return conflict
 				c.JSON(http.StatusConflict, gin.H{
 					"error":   "concurrent_request",
@@ -325,16 +325,16 @@ func IdempotencyMiddleware(config IdempotencyConfig) gin.HandlerFunc {
 				c.Abort()
 				return
 			}
-			
+
 			lockAcquired = true
 			lockReleaser = func() { redisStore.ReleaseLock(cacheKey) }
 		}
-		
+
 		// Ensure lock is released when done
 		if lockAcquired && lockReleaser != nil {
 			defer lockReleaser()
 		}
-		
+
 		// Wrap response writer to capture response
 		writer := &responseWriter{
 			ResponseWriter: c.Writer,
@@ -342,10 +342,10 @@ func IdempotencyMiddleware(config IdempotencyConfig) gin.HandlerFunc {
 			statusCode:     http.StatusOK,
 		}
 		c.Writer = writer
-		
+
 		// Process request
 		c.Next()
-		
+
 		// Only cache successful responses (2xx status codes)
 		if writer.statusCode >= 200 && writer.statusCode < 300 {
 			// Capture headers
@@ -353,7 +353,7 @@ func IdempotencyMiddleware(config IdempotencyConfig) gin.HandlerFunc {
 			for key, values := range c.Writer.Header() {
 				headers[key] = values
 			}
-			
+
 			// Create cached response
 			cached := &CachedResponse{
 				StatusCode: writer.statusCode,
@@ -361,10 +361,10 @@ func IdempotencyMiddleware(config IdempotencyConfig) gin.HandlerFunc {
 				Body:       writer.body.Bytes(),
 				CachedAt:   time.Now(),
 			}
-			
+
 			// Store in cache
 			config.Store.Set(cacheKey, cached, config.TTL)
-			
+
 			config.Logger.WithFields(map[string]interface{}{
 				"key":    idempotencyKey,
 				"method": c.Request.Method,
@@ -379,7 +379,7 @@ func IdempotencyMiddleware(config IdempotencyConfig) gin.HandlerFunc {
 func defaultKeyGenerator(c *gin.Context, idempotencyKey string) string {
 	// Include method and path for uniqueness
 	base := fmt.Sprintf("%s:%s:%s", idempotencyKey, c.Request.Method, c.Request.URL.Path)
-	
+
 	// For POST/PUT/PATCH, include body hash to ensure same operation
 	if c.Request.Method == "POST" || c.Request.Method == "PUT" || c.Request.Method == "PATCH" {
 		// Read and restore body
@@ -387,13 +387,13 @@ func defaultKeyGenerator(c *gin.Context, idempotencyKey string) string {
 		if err == nil && len(bodyBytes) > 0 {
 			// Restore body for handler
 			c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-			
+
 			// Hash body
 			hash := sha256.Sum256(bodyBytes)
 			base += ":" + hex.EncodeToString(hash[:])
 		}
 	}
-	
+
 	return base
 }
 
@@ -411,13 +411,13 @@ func isIdempotentMethod(method string) bool {
 // This provides distributed caching and locking for multi-instance deployments
 func IdempotencyMiddlewareWithRedis(redisClient *redis.Client, keyPrefix string, ttl time.Duration, logger *observability.Logger) gin.HandlerFunc {
 	redisStore := NewRedisStore(redisClient, keyPrefix)
-	
+
 	config := IdempotencyConfig{
 		Store:  redisStore,
 		TTL:    ttl,
 		Logger: logger,
 	}
-	
+
 	return IdempotencyMiddleware(config)
 }
 

@@ -148,10 +148,10 @@ func TestWrap(t *testing.T) {
 // contextWithTraceID creates a context with a trace ID for testing
 func contextWithTraceID(t *testing.T, traceID string) context.Context {
 	t.Helper()
-	
+
 	// Create a span context with the trace ID
 	ctx := context.Background()
-	
+
 	// For testing, we'll use a mock trace ID
 	// In real implementation, this would come from OTEL
 	return ctx

@@ -4,7 +4,8 @@ package http
 import (
 	"time"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
 	"github.com/google/uuid"
 )
 
@@ -89,7 +90,7 @@ type MessageResponse struct {
 }
 
 // toUserDTO converts a domain User to a UserDTO.
-func toUserDTO(user *domain.User) UserDTO {
+func toUserDTO(user *user.User) UserDTO {
 	return UserDTO{
 		ID:        user.ID,
 		Email:     user.Email,
@@ -102,7 +103,7 @@ func toUserDTO(user *domain.User) UserDTO {
 }
 
 // toSessionDTO converts a domain RefreshToken to a SessionDTO.
-func toSessionDTO(token *domain.RefreshToken) SessionDTO {
+func toSessionDTO(token *auth.RefreshToken) SessionDTO {
 	return SessionDTO{
 		Token:     token.Token,
 		IPAddress: token.IPAddress,
@@ -189,7 +190,7 @@ type AdminStatsResponse struct {
 }
 
 // toAdminUserDTO converts a domain User to an AdminUserDTO.
-func toAdminUserDTO(user *domain.User) AdminUserDTO {
+func toAdminUserDTO(user *user.User) AdminUserDTO {
 	return AdminUserDTO{
 		ID:        user.ID,
 		Email:     user.Email,

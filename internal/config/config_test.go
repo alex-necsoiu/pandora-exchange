@@ -269,7 +269,7 @@ func TestLoadConfigWithDotEnv(t *testing.T) {
 	t.Run("load .env file in dev environment", func(t *testing.T) {
 		// Given: Clean environment
 		clearEnv()
-		
+
 		// When: LoadConfig is called with dev environment
 		cfg, err := config.LoadConfig("dev")
 
@@ -278,7 +278,7 @@ func TestLoadConfigWithDotEnv(t *testing.T) {
 		if err != nil && !os.IsNotExist(err) {
 			t.Skip(".env loading not yet implemented")
 		}
-		
+
 		// If .env.dev exists, config should load
 		if cfg != nil {
 			assert.Equal(t, "dev", cfg.AppEnv)
@@ -362,7 +362,7 @@ func TestLoadFromEnv(t *testing.T) {
 	t.Run("fail when required env vars missing", func(t *testing.T) {
 		clearEnv()
 		os.Setenv("APP_ENV", "dev")
-		
+
 		_, err := config.Load()
 		assert.Error(t, err)
 	})
@@ -491,9 +491,9 @@ func TestGetRedisAddr(t *testing.T) {
 // TestIsDevelopment tests environment detection helpers
 func TestEnvironmentHelpers(t *testing.T) {
 	tests := []struct {
-		name        string
-		env         string
-		isDev       bool
+		name         string
+		env          string
+		isDev        bool
 		isProduction bool
 	}{
 		{"dev environment", "dev", true, false},
@@ -573,4 +573,3 @@ func TestTracingConfiguration(t *testing.T) {
 		assert.Equal(t, 0.1, cfg.Tracing.SampleRate)
 	})
 }
-

@@ -1,15 +1,26 @@
-package domain
+package user
 
 import (
 	"context"
+	"time"
 
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
 	"github.com/google/uuid"
 )
 
-// UserService defines the interface for user business logic.
+// TokenPair represents an access token and refresh token pair.
+// Used for JWT-based authentication.
+type TokenPair struct {
+	User         *User
+	AccessToken  string
+	RefreshToken string
+	ExpiresAt    time.Time
+}
+
+// Service defines the interface for user business logic.
 // This is the core service layer that orchestrates domain operations.
 // Following ARCHITECTURE.md section 7 (Domain Interfaces).
-type UserService interface {
+type Service interface {
 	// Register creates a new user account with the provided email, password, first name, and last name.
 	// Password is hashed using Argon2id before storage.
 	// Returns error if email already exists or validation fails.
@@ -64,7 +75,7 @@ type UserService interface {
 
 	// GetActiveSessions retrieves all active sessions (refresh tokens) for a user.
 	// Useful for "active devices" feature in user dashboard.
-	GetActiveSessions(ctx context.Context, userID uuid.UUID) ([]*RefreshToken, error)
+	GetActiveSessions(ctx context.Context, userID uuid.UUID) ([]*auth.RefreshToken, error)
 
 	// Admin-only methods
 
@@ -81,7 +92,7 @@ type UserService interface {
 	UpdateUserRole(ctx context.Context, id uuid.UUID, role Role) (*User, error)
 
 	// GetAllActiveSessions retrieves all active sessions across all users (admin only).
-	GetAllActiveSessions(ctx context.Context, limit, offset int) ([]*RefreshToken, int64, error)
+	GetAllActiveSessions(ctx context.Context, limit, offset int) ([]*auth.RefreshToken, int64, error)
 
 	// ForceLogout revokes a specific refresh token (admin only).
 	ForceLogout(ctx context.Context, token string) error

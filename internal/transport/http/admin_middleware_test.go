@@ -6,7 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	userDomain "github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
 	httpTransport "github.com/alex-necsoiu/pandora-exchange/internal/transport/http"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -27,7 +28,7 @@ func TestAdminMiddleware(t *testing.T) {
 			name: "admin user passes middleware",
 			setupContext: func(c *gin.Context) {
 				c.Set("user_id", uuid.New())
-				c.Set("user_role", string(domain.RoleAdmin))
+				c.Set("user_role", string(userDomain.RoleAdmin))
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -35,7 +36,7 @@ func TestAdminMiddleware(t *testing.T) {
 			name: "regular user is rejected",
 			setupContext: func(c *gin.Context) {
 				c.Set("user_id", uuid.New())
-				c.Set("user_role", string(domain.RoleUser))
+				c.Set("user_role", string(userDomain.RoleUser))
 			},
 			expectedStatus: http.StatusForbidden,
 			expectedError:  "forbidden",
@@ -139,7 +140,7 @@ func TestGetUserIDFromContext(t *testing.T) {
 				if tc.expectError {
 					assert.Error(t, err)
 					assert.Equal(t, uuid.Nil, userID)
-					assert.Equal(t, domain.ErrUnauthorized, err)
+					assert.Equal(t, auth.ErrUnauthorized, err)
 				} else {
 					assert.NoError(t, err)
 					expectedID, _ := c.Get("expected_id")
@@ -167,23 +168,23 @@ func TestGetUserRoleFromContext(t *testing.T) {
 		name         string
 		setupContext func(c *gin.Context)
 		expectError  bool
-		expectedRole domain.Role
+		expectedRole userDomain.Role
 	}{
 		{
 			name: "valid admin role in context",
 			setupContext: func(c *gin.Context) {
-				c.Set("user_role", string(domain.RoleAdmin))
+				c.Set("user_role", string(userDomain.RoleAdmin))
 			},
 			expectError:  false,
-			expectedRole: domain.RoleAdmin,
+			expectedRole: userDomain.RoleAdmin,
 		},
 		{
 			name: "valid user role in context",
 			setupContext: func(c *gin.Context) {
-				c.Set("user_role", string(domain.RoleUser))
+				c.Set("user_role", string(userDomain.RoleUser))
 			},
 			expectError:  false,
-			expectedRole: domain.RoleUser,
+			expectedRole: userDomain.RoleUser,
 		},
 		{
 			name: "missing role in context",
@@ -211,8 +212,8 @@ func TestGetUserRoleFromContext(t *testing.T) {
 
 				if tc.expectError {
 					assert.Error(t, err)
-					assert.Equal(t, domain.Role(""), role)
-					assert.Equal(t, domain.ErrUnauthorized, err)
+					assert.Equal(t, userDomain.Role(""), role)
+					assert.Equal(t, auth.ErrUnauthorized, err)
 				} else {
 					assert.NoError(t, err)
 					assert.Equal(t, tc.expectedRole, role)

@@ -48,10 +48,10 @@ var (
 type TokenClaims struct {
 	jwt.RegisteredClaims
 	UserID    uuid.UUID `json:"user_id"`
-	Email     string    `json:"email,omitempty"`     // Only in access tokens
-	Role      string    `json:"role,omitempty"`      // User role for authorization
-	TokenType string    `json:"token_type"`          // "access" or "refresh"
-	TokenID   string    `json:"jti"`                 // Unique token identifier
+	Email     string    `json:"email,omitempty"` // Only in access tokens
+	Role      string    `json:"role,omitempty"`  // User role for authorization
+	TokenType string    `json:"token_type"`      // "access" or "refresh"
+	TokenID   string    `json:"jti"`             // Unique token identifier
 }
 
 // JWTManager handles JWT token generation and validation.

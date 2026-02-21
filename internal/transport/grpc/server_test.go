@@ -6,7 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
+	userDomain "github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	grpcTransport "github.com/alex-necsoiu/pandora-exchange/internal/transport/grpc"
 	pb "github.com/alex-necsoiu/pandora-exchange/internal/transport/grpc/proto"
@@ -17,41 +18,41 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// MockUserService is a mock implementation of domain.UserService for testing
+// MockUserService is a mock implementation of userDomain.Service for testing
 type MockUserService struct {
 	mock.Mock
 }
 
-func (m *MockUserService) Register(ctx context.Context, email, password, firstName, lastName string) (*domain.User, error) {
+func (m *MockUserService) Register(ctx context.Context, email, password, firstName, lastName string) (*userDomain.User, error) {
 	args := m.Called(ctx, email, password, firstName, lastName)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.User), args.Error(1)
+	return args.Get(0).(*userDomain.User), args.Error(1)
 }
 
-func (m *MockUserService) Login(ctx context.Context, email, password, ipAddress, userAgent string) (*domain.TokenPair, error) {
+func (m *MockUserService) Login(ctx context.Context, email, password, ipAddress, userAgent string) (*userDomain.TokenPair, error) {
 	args := m.Called(ctx, email, password, ipAddress, userAgent)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.TokenPair), args.Error(1)
+	return args.Get(0).(*userDomain.TokenPair), args.Error(1)
 }
 
-func (m *MockUserService) AdminLogin(ctx context.Context, email, password, ipAddress, userAgent string) (*domain.TokenPair, error) {
+func (m *MockUserService) AdminLogin(ctx context.Context, email, password, ipAddress, userAgent string) (*userDomain.TokenPair, error) {
 	args := m.Called(ctx, email, password, ipAddress, userAgent)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.TokenPair), args.Error(1)
+	return args.Get(0).(*userDomain.TokenPair), args.Error(1)
 }
 
-func (m *MockUserService) RefreshToken(ctx context.Context, refreshToken, ipAddress, userAgent string) (*domain.TokenPair, error) {
+func (m *MockUserService) RefreshToken(ctx context.Context, refreshToken, ipAddress, userAgent string) (*userDomain.TokenPair, error) {
 	args := m.Called(ctx, refreshToken, ipAddress, userAgent)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.TokenPair), args.Error(1)
+	return args.Get(0).(*userDomain.TokenPair), args.Error(1)
 }
 
 func (m *MockUserService) Logout(ctx context.Context, refreshToken string) error {
@@ -64,36 +65,36 @@ func (m *MockUserService) LogoutAll(ctx context.Context, userID uuid.UUID) error
 	return args.Error(0)
 }
 
-func (m *MockUserService) GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+func (m *MockUserService) GetByID(ctx context.Context, id uuid.UUID) (*userDomain.User, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.User), args.Error(1)
+	return args.Get(0).(*userDomain.User), args.Error(1)
 }
 
-func (m *MockUserService) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
+func (m *MockUserService) GetByEmail(ctx context.Context, email string) (*userDomain.User, error) {
 	args := m.Called(ctx, email)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.User), args.Error(1)
+	return args.Get(0).(*userDomain.User), args.Error(1)
 }
 
-func (m *MockUserService) UpdateKYC(ctx context.Context, userID uuid.UUID, kycStatus domain.KYCStatus) (*domain.User, error) {
+func (m *MockUserService) UpdateKYC(ctx context.Context, userID uuid.UUID, kycStatus userDomain.KYCStatus) (*userDomain.User, error) {
 	args := m.Called(ctx, userID, kycStatus)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.User), args.Error(1)
+	return args.Get(0).(*userDomain.User), args.Error(1)
 }
 
-func (m *MockUserService) UpdateProfile(ctx context.Context, userID uuid.UUID, firstName, lastName string) (*domain.User, error) {
+func (m *MockUserService) UpdateProfile(ctx context.Context, userID uuid.UUID, firstName, lastName string) (*userDomain.User, error) {
 	args := m.Called(ctx, userID, firstName, lastName)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.User), args.Error(1)
+	return args.Get(0).(*userDomain.User), args.Error(1)
 }
 
 func (m *MockUserService) DeleteAccount(ctx context.Context, userID uuid.UUID) error {
@@ -101,46 +102,46 @@ func (m *MockUserService) DeleteAccount(ctx context.Context, userID uuid.UUID) e
 	return args.Error(0)
 }
 
-func (m *MockUserService) GetActiveSessions(ctx context.Context, userID uuid.UUID) ([]*domain.RefreshToken, error) {
+func (m *MockUserService) GetActiveSessions(ctx context.Context, userID uuid.UUID) ([]*auth.RefreshToken, error) {
 	args := m.Called(ctx, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.RefreshToken), args.Error(1)
+	return args.Get(0).([]*auth.RefreshToken), args.Error(1)
 }
 
-func (m *MockUserService) ListUsers(ctx context.Context, limit, offset int) ([]*domain.User, int64, error) {
+func (m *MockUserService) ListUsers(ctx context.Context, limit, offset int) ([]*userDomain.User, int64, error) {
 	args := m.Called(ctx, limit, offset)
-	return args.Get(0).([]*domain.User), args.Get(1).(int64), args.Error(2)
+	return args.Get(0).([]*userDomain.User), args.Get(1).(int64), args.Error(2)
 }
 
-func (m *MockUserService) SearchUsers(ctx context.Context, query string, limit, offset int) ([]*domain.User, error) {
+func (m *MockUserService) SearchUsers(ctx context.Context, query string, limit, offset int) ([]*userDomain.User, error) {
 	args := m.Called(ctx, query, limit, offset)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*domain.User), args.Error(1)
+	return args.Get(0).([]*userDomain.User), args.Error(1)
 }
 
-func (m *MockUserService) GetUserByIDAdmin(ctx context.Context, id uuid.UUID) (*domain.User, error) {
+func (m *MockUserService) GetUserByIDAdmin(ctx context.Context, id uuid.UUID) (*userDomain.User, error) {
 	args := m.Called(ctx, id)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.User), args.Error(1)
+	return args.Get(0).(*userDomain.User), args.Error(1)
 }
 
-func (m *MockUserService) UpdateUserRole(ctx context.Context, userID uuid.UUID, role domain.Role) (*domain.User, error) {
+func (m *MockUserService) UpdateUserRole(ctx context.Context, userID uuid.UUID, role userDomain.Role) (*userDomain.User, error) {
 	args := m.Called(ctx, userID, role)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*domain.User), args.Error(1)
+	return args.Get(0).(*userDomain.User), args.Error(1)
 }
 
-func (m *MockUserService) GetAllActiveSessions(ctx context.Context, limit, offset int) ([]*domain.RefreshToken, int64, error) {
+func (m *MockUserService) GetAllActiveSessions(ctx context.Context, limit, offset int) ([]*auth.RefreshToken, int64, error) {
 	args := m.Called(ctx, limit, offset)
-	return args.Get(0).([]*domain.RefreshToken), args.Get(1).(int64), args.Error(2)
+	return args.Get(0).([]*auth.RefreshToken), args.Get(1).(int64), args.Error(2)
 }
 
 func (m *MockUserService) ForceLogout(ctx context.Context, token string) error {
@@ -157,15 +158,15 @@ func (m *MockUserService) GetSystemStats(ctx context.Context) (map[string]interf
 }
 
 // Helper to create test user
-func createTestUser() *domain.User {
+func createTestUser() *userDomain.User {
 	now := time.Now()
-	return &domain.User{
+	return &userDomain.User{
 		ID:        uuid.New(),
 		Email:     "test@example.com",
 		FirstName: "John",
 		LastName:  "Doe",
-		KYCStatus: domain.KYCStatusPending,
-		Role:      domain.RoleUser,
+		KYCStatus: userDomain.KYCStatusPending,
+		Role:      userDomain.RoleUser,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
@@ -198,7 +199,7 @@ func TestGetUser(t *testing.T) {
 			name:   "user not found",
 			userID: uuid.New().String(),
 			mockSetup: func(m *MockUserService) {
-				m.On("GetByID", mock.Anything, mock.Anything).Return(nil, domain.ErrUserNotFound)
+				m.On("GetByID", mock.Anything, mock.Anything).Return(nil, userDomain.ErrNotFound)
 			},
 			expectedError: codes.NotFound,
 		},
@@ -256,7 +257,7 @@ func TestGetUserByEmail(t *testing.T) {
 			name:  "user not found",
 			email: "notfound@example.com",
 			mockSetup: func(m *MockUserService) {
-				m.On("GetByEmail", mock.Anything, "notfound@example.com").Return(nil, domain.ErrUserNotFound)
+				m.On("GetByEmail", mock.Anything, "notfound@example.com").Return(nil, userDomain.ErrNotFound)
 			},
 			expectedError: codes.NotFound,
 		},
@@ -303,8 +304,8 @@ func TestUpdateKYCStatus(t *testing.T) {
 			kycStatus: "verified",
 			mockSetup: func(m *MockUserService) {
 				user := createTestUser()
-				user.KYCStatus = domain.KYCStatusVerified
-				m.On("UpdateKYC", mock.Anything, mock.Anything, domain.KYCStatusVerified).Return(user, nil)
+				user.KYCStatus = userDomain.KYCStatusVerified
+				m.On("UpdateKYC", mock.Anything, mock.Anything, userDomain.KYCStatusVerified).Return(user, nil)
 			},
 			expectedError: codes.OK,
 		},
@@ -320,7 +321,7 @@ func TestUpdateKYCStatus(t *testing.T) {
 			userID:    uuid.New().String(),
 			kycStatus: "verified",
 			mockSetup: func(m *MockUserService) {
-				m.On("UpdateKYC", mock.Anything, mock.Anything, mock.Anything).Return(nil, domain.ErrUserNotFound)
+				m.On("UpdateKYC", mock.Anything, mock.Anything, mock.Anything).Return(nil, userDomain.ErrNotFound)
 			},
 			expectedError: codes.NotFound,
 		},
@@ -394,7 +395,7 @@ func TestValidateUser(t *testing.T) {
 			name:   "user not found",
 			userID: uuid.New().String(),
 			mockSetup: func(m *MockUserService) {
-				m.On("GetByID", mock.Anything, mock.Anything).Return(nil, domain.ErrUserNotFound)
+				m.On("GetByID", mock.Anything, mock.Anything).Return(nil, userDomain.ErrNotFound)
 			},
 			expectedValid:  false,
 			expectedActive: false,
@@ -449,7 +450,7 @@ func TestListUsers(t *testing.T) {
 			limit:  10,
 			offset: 0,
 			mockSetup: func(m *MockUserService) {
-				users := []*domain.User{createTestUser(), createTestUser()}
+				users := []*userDomain.User{createTestUser(), createTestUser()}
 				m.On("ListUsers", mock.Anything, 10, 0).Return(users, int64(2), nil)
 			},
 			expectedError: codes.OK,
@@ -460,7 +461,7 @@ func TestListUsers(t *testing.T) {
 			limit:  0,
 			offset: 0,
 			mockSetup: func(m *MockUserService) {
-				users := []*domain.User{createTestUser()}
+				users := []*userDomain.User{createTestUser()}
 				m.On("ListUsers", mock.Anything, 10, 0).Return(users, int64(1), nil)
 			},
 			expectedError: codes.OK,
@@ -521,31 +522,31 @@ func TestHandleServiceError(t *testing.T) {
 	}{
 		{
 			name:         "ErrUserAlreadyExists maps to AlreadyExists",
-			domainError:  domain.ErrUserAlreadyExists,
+			domainError:  userDomain.ErrAlreadyExists,
 			expectedCode: codes.AlreadyExists,
 			rpcMethod:    "GetUser",
 		},
 		{
 			name:         "ErrInvalidCredentials maps to Unauthenticated",
-			domainError:  domain.ErrInvalidCredentials,
+			domainError:  userDomain.ErrInvalidCredentials,
 			expectedCode: codes.Unauthenticated,
 			rpcMethod:    "GetUser",
 		},
 		{
 			name:         "ErrInvalidKYCStatus maps to InvalidArgument",
-			domainError:  domain.ErrInvalidKYCStatus,
+			domainError:  userDomain.ErrInvalidKYCStatus,
 			expectedCode: codes.InvalidArgument,
 			rpcMethod:    "UpdateKYCStatus",
 		},
 		{
 			name:         "ErrInvalidEmail maps to InvalidArgument",
-			domainError:  domain.ErrInvalidEmail,
+			domainError:  userDomain.ErrInvalidEmail,
 			expectedCode: codes.InvalidArgument,
 			rpcMethod:    "GetUserByEmail",
 		},
 		{
 			name:         "ErrWeakPassword maps to InvalidArgument",
-			domainError:  domain.ErrWeakPassword,
+			domainError:  userDomain.ErrWeakPassword,
 			expectedCode: codes.InvalidArgument,
 			rpcMethod:    "GetUser",
 		},
@@ -689,7 +690,7 @@ func TestListUsers_InternalError(t *testing.T) {
 	logger := observability.NewLogger("test", "grpc-test")
 	server := grpcTransport.NewServer(mockService, logger)
 
-	mockService.On("ListUsers", mock.Anything, 10, 0).Return([]*domain.User{}, int64(0), errors.New("database failure"))
+	mockService.On("ListUsers", mock.Anything, 10, 0).Return([]*userDomain.User{}, int64(0), errors.New("database failure"))
 
 	req := &pb.ListUsersRequest{Limit: 10, Offset: 0}
 	resp, err := server.ListUsers(context.Background(), req)
@@ -758,7 +759,7 @@ func TestListUsers_WithTotal(t *testing.T) {
 	logger := observability.NewLogger("test", "grpc-test")
 	server := grpcTransport.NewServer(mockService, logger)
 
-	users := []*domain.User{createTestUser(), createTestUser()}
+	users := []*userDomain.User{createTestUser(), createTestUser()}
 	totalUsers := int64(100) // Total in DB
 
 	mockService.On("ListUsers", mock.Anything, 2, 10).Return(users, totalUsers, nil)

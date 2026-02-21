@@ -7,7 +7,9 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/common"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -149,8 +151,8 @@ func ErrorInterceptor() grpc.UnaryServerInterceptor {
 		traceID := extractTraceIDFromContext(ctx)
 
 		// Convert to AppError
-		var appErr *domain.AppError
-		if domainErr, ok := err.(*domain.AppError); ok {
+		var appErr *common.AppError
+		if domainErr, ok := err.(*common.AppError); ok {
 			// Already an AppError, use it directly
 			appErr = domainErr
 			// Update trace ID if not set
@@ -159,7 +161,7 @@ func ErrorInterceptor() grpc.UnaryServerInterceptor {
 			}
 		} else {
 			// Convert domain error to AppError
-			appErr = domain.NewAppError(err, err.Error(), traceID)
+			appErr = common.NewAppError(err, err.Error(), traceID)
 		}
 
 		// Map to gRPC status code
@@ -179,45 +181,45 @@ func ErrorInterceptor() grpc.UnaryServerInterceptor {
 //   - grpc_codes.Code: Corresponding gRPC status code
 func mapErrorToGRPCCode(err error) grpc_codes.Code {
 	switch {
-	case errors.Is(err, domain.ErrUserNotFound):
+	case errors.Is(err, user.ErrNotFound):
 		return grpc_codes.NotFound
-	case errors.Is(err, domain.ErrTokenNotFound):
+	case errors.Is(err, auth.ErrTokenNotFound):
 		return grpc_codes.NotFound
-	case errors.Is(err, domain.ErrRefreshTokenNotFound):
+	case errors.Is(err, auth.ErrRefreshTokenNotFound):
 		return grpc_codes.NotFound
 		
-	case errors.Is(err, domain.ErrUserAlreadyExists):
+	case errors.Is(err, user.ErrAlreadyExists):
 		return grpc_codes.AlreadyExists
 		
-	case errors.Is(err, domain.ErrInvalidCredentials):
+	case errors.Is(err, user.ErrInvalidCredentials):
 		return grpc_codes.Unauthenticated
-	case errors.Is(err, domain.ErrUnauthorized):
+	case errors.Is(err, auth.ErrUnauthorized):
 		return grpc_codes.Unauthenticated
-	case errors.Is(err, domain.ErrAccessTokenExpired):
+	case errors.Is(err, auth.ErrAccessTokenExpired):
 		return grpc_codes.Unauthenticated
-	case errors.Is(err, domain.ErrInvalidAccessToken):
+	case errors.Is(err, auth.ErrInvalidAccessToken):
 		return grpc_codes.Unauthenticated
 		
-	case errors.Is(err, domain.ErrForbidden):
+	case errors.Is(err, auth.ErrForbidden):
 		return grpc_codes.PermissionDenied
-	case errors.Is(err, domain.ErrUserDeleted):
+	case errors.Is(err, user.ErrDeleted):
 		return grpc_codes.PermissionDenied
-	case errors.Is(err, domain.ErrRefreshTokenExpired):
+	case errors.Is(err, auth.ErrRefreshTokenExpired):
 		return grpc_codes.PermissionDenied
-	case errors.Is(err, domain.ErrRefreshTokenRevoked):
+	case errors.Is(err, auth.ErrRefreshTokenRevoked):
 		return grpc_codes.PermissionDenied
 		
-	case errors.Is(err, domain.ErrInvalidInput):
+	case errors.Is(err, user.ErrInvalidInput):
 		return grpc_codes.InvalidArgument
-	case errors.Is(err, domain.ErrInvalidEmail):
+	case errors.Is(err, user.ErrInvalidEmail):
 		return grpc_codes.InvalidArgument
-	case errors.Is(err, domain.ErrWeakPassword):
+	case errors.Is(err, user.ErrWeakPassword):
 		return grpc_codes.InvalidArgument
-	case errors.Is(err, domain.ErrInvalidKYCStatus):
+	case errors.Is(err, user.ErrInvalidKYCStatus):
 		return grpc_codes.InvalidArgument
-	case errors.Is(err, domain.ErrInvalidRole):
+	case errors.Is(err, user.ErrInvalidRole):
 		return grpc_codes.InvalidArgument
-	case errors.Is(err, domain.ErrInvalidRefreshToken):
+	case errors.Is(err, auth.ErrInvalidRefreshToken):
 		return grpc_codes.InvalidArgument
 		
 	default:

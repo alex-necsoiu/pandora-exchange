@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
@@ -53,8 +53,8 @@ func TestPublish_Success(t *testing.T) {
 	publisher := NewRedisEventPublisher(client, logger)
 
 	userID := uuid.New()
-	event := domain.NewEvent(
-		domain.EventTypeUserRegistered,
+	event := user.NewEvent(
+		user.EventTypeUserRegistered,
 		userID,
 		map[string]interface{}{
 			"email":      "test@example.com",
@@ -68,7 +68,7 @@ func TestPublish_Success(t *testing.T) {
 	err := publisher.Publish(event)
 
 	// Check if Redis is available
-	if err != nil && (errors.Is(err, context.DeadlineExceeded) || 
+	if err != nil && (errors.Is(err, context.DeadlineExceeded) ||
 		errors.Is(err, redis.Nil) ||
 		err.Error() == "dial tcp 127.0.0.1:6379: connect: connection refused" ||
 		err.Error() == "dial tcp [::1]:6379: connect: connection refused") {
@@ -90,7 +90,7 @@ func TestPublish_Success(t *testing.T) {
 	// Verify the last message contains our event
 	lastMessage := messages[len(messages)-1]
 	assert.Equal(t, event.ID, lastMessage.Values["event_id"])
-	assert.Equal(t, string(domain.EventTypeUserRegistered), lastMessage.Values["event_type"])
+	assert.Equal(t, string(user.EventTypeUserRegistered), lastMessage.Values["event_type"])
 	assert.Equal(t, userID.String(), lastMessage.Values["user_id"])
 
 	// Verify payload deserialization
@@ -130,9 +130,9 @@ func TestPublish_InvalidPayload(t *testing.T) {
 
 	// Create event with un-marshalable payload (channels can't be JSON encoded)
 	userID := uuid.New()
-	event := &domain.Event{
+	event := &user.Event{
 		ID:        uuid.New().String(),
-		Type:      domain.EventTypeUserRegistered,
+		Type:      user.EventTypeUserRegistered,
 		Timestamp: time.Now(),
 		UserID:    userID,
 		Payload: map[string]interface{}{
@@ -159,13 +159,13 @@ func TestPublish_InvalidMetadata(t *testing.T) {
 	userID := uuid.New()
 
 	// Create a properly typed event
-	validEvent := domain.NewEvent(
-		domain.EventTypeUserKYCUpdated,
+	validEvent := user.NewEvent(
+		user.EventTypeUserKYCUpdated,
 		userID,
 		map[string]interface{}{"status": "approved"},
 	)
 
-	// The publisher expects domain.Event with map[string]string metadata
+	// The publisher expects user.Event with map[string]string metadata
 	// which is always marshalable, so this test verifies normal operation
 	err := publisher.Publish(validEvent)
 
@@ -194,8 +194,8 @@ func TestPublish_RedisConnectionError(t *testing.T) {
 	publisher := NewRedisEventPublisher(client, logger)
 
 	userID := uuid.New()
-	event := domain.NewEvent(
-		domain.EventTypeUserRegistered,
+	event := user.NewEvent(
+		user.EventTypeUserRegistered,
 		userID,
 		map[string]interface{}{"email": "test@example.com"},
 	)
@@ -219,14 +219,14 @@ func TestPublishBatch_Success(t *testing.T) {
 	userID1 := uuid.New()
 	userID2 := uuid.New()
 
-	events := []*domain.Event{
-		domain.NewEvent(
-			domain.EventTypeUserRegistered,
+	events := []*user.Event{
+		user.NewEvent(
+			user.EventTypeUserRegistered,
 			userID1,
 			map[string]interface{}{"email": "user1@example.com"},
 		),
-		domain.NewEvent(
-			domain.EventTypeUserKYCUpdated,
+		user.NewEvent(
+			user.EventTypeUserKYCUpdated,
 			userID2,
 			map[string]interface{}{"status": "approved"},
 		),
@@ -235,7 +235,13 @@ func TestPublishBatch_Success(t *testing.T) {
 	// Get initial stream length
 	initialLen := client.XLen(ctx, DefaultStreamName).Val()
 
-	err := publisher.PublishBatch(events)
+	// Convert to []interface{}
+	eventsInterface := make([]interface{}, len(events))
+	for i, e := range events {
+		eventsInterface[i] = e
+	}
+
+	err := publisher.PublishBatch(eventsInterface)
 
 	// Check if Redis is available
 	if err != nil && (errors.Is(err, context.DeadlineExceeded) ||
@@ -256,7 +262,7 @@ func TestPublishBatch_EmptyBatch(t *testing.T) {
 	client := redis.NewClient(&redis.Options{})
 	publisher := NewRedisEventPublisher(client, logger)
 
-	err := publisher.PublishBatch([]*domain.Event{})
+	err := publisher.PublishBatch([]interface{}{})
 
 	assert.NoError(t, err) // Empty batch should not error
 }
@@ -272,15 +278,15 @@ func TestPublishBatch_WithNilEvent(t *testing.T) {
 	publisher := NewRedisEventPublisher(client, logger)
 
 	userID := uuid.New()
-	events := []*domain.Event{
-		domain.NewEvent(
-			domain.EventTypeUserRegistered,
+	events := []*user.Event{
+		user.NewEvent(
+			user.EventTypeUserRegistered,
 			userID,
 			map[string]interface{}{"email": "user@example.com"},
 		),
 		nil, // Nil event should be skipped
-		domain.NewEvent(
-			domain.EventTypeUserLoggedIn,
+		user.NewEvent(
+			user.EventTypeUserLoggedIn,
 			userID,
 			map[string]interface{}{"ip": "127.0.0.1"},
 		),
@@ -288,7 +294,13 @@ func TestPublishBatch_WithNilEvent(t *testing.T) {
 
 	initialLen := client.XLen(ctx, DefaultStreamName).Val()
 
-	err := publisher.PublishBatch(events)
+	// Convert to []interface{}
+	eventsInterface := make([]interface{}, len(events))
+	for i, e := range events {
+		eventsInterface[i] = e
+	}
+
+	err := publisher.PublishBatch(eventsInterface)
 
 	// Check if Redis is available
 	if err != nil && (errors.Is(err, context.DeadlineExceeded) ||
@@ -314,10 +326,10 @@ func TestPublishBatch_MarshalError(t *testing.T) {
 	publisher := NewRedisEventPublisher(client, logger)
 
 	userID := uuid.New()
-	events := []*domain.Event{
+	events := []*user.Event{
 		{
 			ID:        uuid.New().String(),
-			Type:      domain.EventTypeUserRegistered,
+			Type:      user.EventTypeUserRegistered,
 			Timestamp: time.Now(),
 			UserID:    userID,
 			Payload: map[string]interface{}{
@@ -327,7 +339,13 @@ func TestPublishBatch_MarshalError(t *testing.T) {
 		},
 	}
 
-	err := publisher.PublishBatch(events)
+	// Convert to []interface{}
+	eventsInterface := make([]interface{}, len(events))
+	for i, e := range events {
+		eventsInterface[i] = e
+	}
+
+	err := publisher.PublishBatch(eventsInterface)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to marshal event payload")
@@ -346,15 +364,21 @@ func TestPublishBatch_RedisError(t *testing.T) {
 	publisher := NewRedisEventPublisher(client, logger)
 
 	userID := uuid.New()
-	events := []*domain.Event{
-		domain.NewEvent(
-			domain.EventTypeUserRegistered,
+	events := []*user.Event{
+		user.NewEvent(
+			user.EventTypeUserRegistered,
 			userID,
 			map[string]interface{}{"email": "user@example.com"},
 		),
 	}
 
-	err := publisher.PublishBatch(events)
+	// Convert to []interface{}
+	eventsInterface := make([]interface{}, len(events))
+	for i, e := range events {
+		eventsInterface[i] = e
+	}
+
+	err := publisher.PublishBatch(eventsInterface)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to publish batch events")
@@ -385,15 +409,15 @@ func TestClose_NilClient(t *testing.T) {
 func TestEventTypes(t *testing.T) {
 	tests := []struct {
 		name      string
-		eventType domain.EventType
+		eventType user.EventType
 		expected  string
 	}{
-		{"User Registered", domain.EventTypeUserRegistered, "user.registered"},
-		{"KYC Updated", domain.EventTypeUserKYCUpdated, "user.kyc.updated"},
-		{"Profile Updated", domain.EventTypeUserProfileUpdated, "user.profile.updated"},
-		{"User Deleted", domain.EventTypeUserDeleted, "user.deleted"},
-		{"User Logged In", domain.EventTypeUserLoggedIn, "user.logged_in"},
-		{"Password Changed", domain.EventTypeUserPasswordChanged, "user.password.changed"},
+		{"User Registered", user.EventTypeUserRegistered, "user.registered"},
+		{"KYC Updated", user.EventTypeUserKYCUpdated, "user.kyc.updated"},
+		{"Profile Updated", user.EventTypeUserProfileUpdated, "user.profile.updated"},
+		{"User Deleted", user.EventTypeUserDeleted, "user.deleted"},
+		{"User Logged In", user.EventTypeUserLoggedIn, "user.logged_in"},
+		{"Password Changed", user.EventTypeUserPasswordChanged, "user.password.changed"},
 	}
 
 	for _, tt := range tests {
@@ -411,10 +435,10 @@ func TestNewEvent(t *testing.T) {
 		"name":  "John Doe",
 	}
 
-	event := domain.NewEvent(domain.EventTypeUserRegistered, userID, payload)
+	event := user.NewEvent(user.EventTypeUserRegistered, userID, payload)
 
 	assert.NotEmpty(t, event.ID)
-	assert.Equal(t, domain.EventTypeUserRegistered, event.Type)
+	assert.Equal(t, user.EventTypeUserRegistered, event.Type)
 	assert.Equal(t, userID, event.UserID)
 	assert.Equal(t, payload, event.Payload)
 	assert.NotNil(t, event.Metadata)
@@ -424,8 +448,8 @@ func TestNewEvent(t *testing.T) {
 // Test WithMetadata helper
 func TestWithMetadata(t *testing.T) {
 	userID := uuid.New()
-	event := domain.NewEvent(
-		domain.EventTypeUserLoggedIn,
+	event := user.NewEvent(
+		user.EventTypeUserLoggedIn,
 		userID,
 		map[string]interface{}{"session_id": "abc123"},
 	)

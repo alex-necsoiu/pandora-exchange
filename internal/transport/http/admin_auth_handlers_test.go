@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	userDomain "github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	httpTransport "github.com/alex-necsoiu/pandora-exchange/internal/transport/http"
 	"github.com/gin-gonic/gin"
@@ -36,17 +36,17 @@ func setupAdminAuthHandlerTest() (*httpTransport.AdminAuthHandler, *MockUserServ
 
 // TestAdminLoginHandler tests the AdminLogin HTTP handler
 func TestAdminLoginHandler(t *testing.T) {
-	validUser := &domain.User{
+	validUser := &userDomain.User{
 		ID:        uuid.New(),
 		Email:     "admin@test.com",
 		FirstName: "Admin",
 		LastName:  "User",
-		Role:      domain.RoleAdmin,
-		KYCStatus: domain.KYCStatusVerified,
+		Role:      userDomain.RoleAdmin,
+		KYCStatus: userDomain.KYCStatusVerified,
 		CreatedAt: time.Now(),
 	}
 
-	tokenPair := &domain.TokenPair{
+	tokenPair := &userDomain.TokenPair{
 		User:         validUser,
 		AccessToken:  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test",
 		RefreshToken: "refresh_abc123",
@@ -101,7 +101,7 @@ func TestAdminLoginHandler(t *testing.T) {
 			},
 			mockSetup: func(m *MockUserService) {
 				m.On("AdminLogin", mock.Anything, "admin@test.com", "WrongPassword", mock.Anything, mock.Anything).
-					Return(nil, domain.ErrInvalidCredentials)
+					Return(nil, userDomain.ErrInvalidCredentials)
 			},
 			expectedStatus: http.StatusUnauthorized,
 			expectedError:  "invalid credentials",
@@ -200,17 +200,17 @@ func TestAdminLoginHandler(t *testing.T) {
 
 // TestAdminRefreshTokenHandler tests the AdminRefreshToken HTTP handler
 func TestAdminRefreshTokenHandler(t *testing.T) {
-	adminUser := &domain.User{
+	adminUser := &userDomain.User{
 		ID:        uuid.New(),
 		Email:     "admin@test.com",
 		FirstName: "Admin",
 		LastName:  "User",
-		Role:      domain.RoleAdmin,
-		KYCStatus: domain.KYCStatusVerified,
+		Role:      userDomain.RoleAdmin,
+		KYCStatus: userDomain.KYCStatusVerified,
 		CreatedAt: time.Now(),
 	}
 
-	newTokenPair := &domain.TokenPair{
+	newTokenPair := &userDomain.TokenPair{
 		User:         adminUser,
 		AccessToken:  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.new_token",
 		RefreshToken: "refresh_xyz789",

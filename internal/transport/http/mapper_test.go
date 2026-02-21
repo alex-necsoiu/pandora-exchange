@@ -7,26 +7,26 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	userDomain "github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
 	"github.com/alex-necsoiu/pandora-exchange/internal/transport/http/dto"
 )
 
-// TestToUserResponse verifies domain.User to UserResponse mapping
+// TestToUserResponse verifies userDomain.User to UserResponse mapping
 func TestToUserResponse(t *testing.T) {
 	tests := []struct {
 		name     string
-		user     domain.User
+		user     userDomain.User
 		expected dto.UserResponse
 	}{
 		{
 			name: "complete user",
-			user: domain.User{
+			user: userDomain.User{
 				ID:        uuid.MustParse("550e8400-e29b-41d4-a716-446655440000"),
 				Email:     "test@example.com",
 				FirstName: "John",
 				LastName:  "Doe",
-				Role:      domain.RoleUser,
-				KYCStatus: domain.KYCStatusVerified,
+				Role:      userDomain.RoleUser,
+				KYCStatus: userDomain.KYCStatusVerified,
 				DeletedAt: nil,  // Active user
 				CreatedAt: time.Date(2025, 11, 8, 10, 0, 0, 0, time.UTC),
 				UpdatedAt: time.Date(2025, 11, 8, 12, 0, 0, 0, time.UTC),
@@ -45,13 +45,13 @@ func TestToUserResponse(t *testing.T) {
 		},
 		{
 			name: "inactive user",
-			user: domain.User{
+			user: userDomain.User{
 				ID:        uuid.MustParse("550e8400-e29b-41d4-a716-446655440001"),
 				Email:     "inactive@example.com",
 				FirstName: "Jane",
 				LastName:  "Smith",
-				Role:      domain.RoleUser,
-				KYCStatus: domain.KYCStatusPending,
+				Role:      userDomain.RoleUser,
+				KYCStatus: userDomain.KYCStatusPending,
 				DeletedAt: timePtr(time.Date(2025, 11, 1, 12, 0, 0, 0, time.UTC)),  // Deleted user
 				CreatedAt: time.Date(2025, 11, 1, 10, 0, 0, 0, time.UTC),
 				UpdatedAt: time.Date(2025, 11, 1, 10, 0, 0, 0, time.UTC),

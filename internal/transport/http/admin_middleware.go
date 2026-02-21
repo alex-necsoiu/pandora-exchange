@@ -3,7 +3,8 @@ package http
 import (
 	"net/http"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -37,7 +38,7 @@ func AdminMiddleware(logger *observability.Logger) gin.HandlerFunc {
 		}
 
 		// Check if user has admin role
-		if domain.Role(role) != domain.RoleAdmin {
+		if user.Role(role) != user.RoleAdmin {
 			userID, _ := c.Get("user_id")
 			logger.WithFields(map[string]interface{}{
 				"user_id": userID,
@@ -62,28 +63,28 @@ func AdminMiddleware(logger *observability.Logger) gin.HandlerFunc {
 func GetUserIDFromContext(c *gin.Context) (uuid.UUID, error) {
 	userIDValue, exists := c.Get("user_id")
 	if !exists {
-		return uuid.Nil, domain.ErrUnauthorized
+		return uuid.Nil, auth.ErrUnauthorized
 	}
 
 	userID, ok := userIDValue.(uuid.UUID)
 	if !ok {
-		return uuid.Nil, domain.ErrUnauthorized
+		return uuid.Nil, auth.ErrUnauthorized
 	}
 
 	return userID, nil
 }
 
 // GetUserRoleFromContext extracts the user role from the Gin context.
-func GetUserRoleFromContext(c *gin.Context) (domain.Role, error) {
+func GetUserRoleFromContext(c *gin.Context) (user.Role, error) {
 	roleValue, exists := c.Get("user_role")
 	if !exists {
-		return "", domain.ErrUnauthorized
+		return "", auth.ErrUnauthorized
 	}
 
 	role, ok := roleValue.(string)
 	if !ok {
-		return "", domain.ErrUnauthorized
+		return "", auth.ErrUnauthorized
 	}
 
-	return domain.Role(role), nil
+	return user.Role(role), nil
 }

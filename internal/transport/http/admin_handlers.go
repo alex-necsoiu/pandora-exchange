@@ -3,7 +3,8 @@ package http
 import (
 	"net/http"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
+	userDomain "github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -11,12 +12,12 @@ import (
 
 // AdminHandler handles admin-specific HTTP requests.
 type AdminHandler struct {
-	userService domain.UserService
+	userService userDomain.Service
 	logger      *observability.Logger
 }
 
 // NewAdminHandler creates a new AdminHandler instance.
-func NewAdminHandler(userService domain.UserService, logger *observability.Logger) *AdminHandler {
+func NewAdminHandler(userService userDomain.Service, logger *observability.Logger) *AdminHandler {
 	return &AdminHandler{
 		userService: userService,
 		logger:      logger,
@@ -130,7 +131,7 @@ func (h *AdminHandler) GetUser(c *gin.Context) {
 
 	user, err := h.userService.GetUserByIDAdmin(c.Request.Context(), userID)
 	if err != nil {
-		if err == domain.ErrUserNotFound {
+		if err == userDomain.ErrNotFound {
 			c.JSON(http.StatusNotFound, ErrorResponse{
 				Error:   "user_not_found",
 				Message: "User not found",
@@ -177,16 +178,16 @@ func (h *AdminHandler) UpdateUserRole(c *gin.Context) {
 		"role":    req.Role,
 	}).Info("Admin: Processing update role request")
 
-	user, err := h.userService.UpdateUserRole(c.Request.Context(), userID, domain.Role(req.Role))
+	user, err := h.userService.UpdateUserRole(c.Request.Context(), userID, userDomain.Role(req.Role))
 	if err != nil {
-		if err == domain.ErrUserNotFound {
+		if err == userDomain.ErrNotFound {
 			c.JSON(http.StatusNotFound, ErrorResponse{
 				Error:   "user_not_found",
 				Message: "User not found",
 			})
 			return
 		}
-		if err == domain.ErrInvalidRole {
+		if err == userDomain.ErrInvalidRole {
 			c.JSON(http.StatusBadRequest, ErrorResponse{
 				Error:   "invalid_role",
 				Message: "Invalid role specified",
@@ -275,7 +276,7 @@ func (h *AdminHandler) ForceLogout(c *gin.Context) {
 
 	err := h.userService.ForceLogout(c.Request.Context(), req.Token)
 	if err != nil {
-		if err == domain.ErrTokenNotFound {
+		if err == auth.ErrTokenNotFound {
 			c.JSON(http.StatusNotFound, ErrorResponse{
 				Error:   "token_not_found",
 				Message: "Token not found or already revoked",

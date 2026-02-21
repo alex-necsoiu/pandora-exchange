@@ -569,7 +569,7 @@ func TestRoleClaimSecurity(t *testing.T) {
 
 	t.Run("role cannot be tampered with", func(t *testing.T) {
 		userID := uuid.New()
-		
+
 		// Generate user token
 		userToken, err := manager.GenerateAccessToken(userID, "user@test.com", "user")
 		require.NoError(t, err)
@@ -586,7 +586,7 @@ func TestRoleClaimSecurity(t *testing.T) {
 
 	t.Run("role is cryptographically protected", func(t *testing.T) {
 		userID := uuid.New()
-		
+
 		// Create two managers with different keys
 		manager1, err := auth.NewJWTManager(testSigningKey, 15*time.Minute, 7*24*time.Hour)
 		require.NoError(t, err)
@@ -605,7 +605,7 @@ func TestRoleClaimSecurity(t *testing.T) {
 
 	t.Run("role claim is mandatory in token structure", func(t *testing.T) {
 		userID := uuid.New()
-		
+
 		// Generate token with role
 		token, err := manager.GenerateAccessToken(userID, "test@test.com", "admin")
 		require.NoError(t, err)

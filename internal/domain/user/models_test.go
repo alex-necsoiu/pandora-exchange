@@ -1,10 +1,11 @@
-package domain_test
+package user_test
 
 import (
 	"testing"
 	"time"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
 	"github.com/google/uuid"
 )
 
@@ -12,37 +13,37 @@ import (
 func TestRole_IsValid(t *testing.T) {
 	tests := []struct {
 		name string
-		role domain.Role
+		role user.Role
 		want bool
 	}{
 		{
 			name: "user role is valid",
-			role: domain.RoleUser,
+			role: user.RoleUser,
 			want: true,
 		},
 		{
 			name: "admin role is valid",
-			role: domain.RoleAdmin,
+			role: user.RoleAdmin,
 			want: true,
 		},
 		{
 			name: "invalid role",
-			role: domain.Role("invalid"),
+			role: user.Role("invalid"),
 			want: false,
 		},
 		{
 			name: "empty role",
-			role: domain.Role(""),
+			role: user.Role(""),
 			want: false,
 		},
 		{
 			name: "uppercase ADMIN is invalid",
-			role: domain.Role("ADMIN"),
+			role: user.Role("ADMIN"),
 			want: false,
 		},
 		{
 			name: "uppercase USER is invalid",
-			role: domain.Role("USER"),
+			role: user.Role("USER"),
 			want: false,
 		},
 	}
@@ -60,22 +61,22 @@ func TestRole_IsValid(t *testing.T) {
 func TestRole_String(t *testing.T) {
 	tests := []struct {
 		name string
-		role domain.Role
+		role user.Role
 		want string
 	}{
 		{
 			name: "user role to string",
-			role: domain.RoleUser,
+			role: user.RoleUser,
 			want: "user",
 		},
 		{
 			name: "admin role to string",
-			role: domain.RoleAdmin,
+			role: user.RoleAdmin,
 			want: "admin",
 		},
 		{
 			name: "custom role to string",
-			role: domain.Role("custom"),
+			role: user.Role("custom"),
 			want: "custom",
 		},
 	}
@@ -93,38 +94,38 @@ func TestRole_String(t *testing.T) {
 func TestUser_IsAdmin(t *testing.T) {
 	tests := []struct {
 		name string
-		user *domain.User
+		user *user.User
 		want bool
 	}{
 		{
 			name: "admin user is admin",
-			user: &domain.User{
+			user: &user.User{
 				ID:   uuid.New(),
-				Role: domain.RoleAdmin,
+				Role: user.RoleAdmin,
 			},
 			want: true,
 		},
 		{
 			name: "regular user is not admin",
-			user: &domain.User{
+			user: &user.User{
 				ID:   uuid.New(),
-				Role: domain.RoleUser,
+				Role: user.RoleUser,
 			},
 			want: false,
 		},
 		{
 			name: "user with invalid role is not admin",
-			user: &domain.User{
+			user: &user.User{
 				ID:   uuid.New(),
-				Role: domain.Role("invalid"),
+				Role: user.Role("invalid"),
 			},
 			want: false,
 		},
 		{
 			name: "user with empty role is not admin",
-			user: &domain.User{
+			user: &user.User{
 				ID:   uuid.New(),
-				Role: domain.Role(""),
+				Role: user.Role(""),
 			},
 			want: false,
 		},
@@ -142,32 +143,32 @@ func TestUser_IsAdmin(t *testing.T) {
 func TestKYCStatus_IsValid(t *testing.T) {
 	tests := []struct {
 		name   string
-		status domain.KYCStatus
+		status user.KYCStatus
 		want   bool
 	}{
 		{
 			name:   "pending is valid",
-			status: domain.KYCStatusPending,
+			status: user.KYCStatusPending,
 			want:   true,
 		},
 		{
 			name:   "verified is valid",
-			status: domain.KYCStatusVerified,
+			status: user.KYCStatusVerified,
 			want:   true,
 		},
 		{
 			name:   "rejected is valid",
-			status: domain.KYCStatusRejected,
+			status: user.KYCStatusRejected,
 			want:   true,
 		},
 		{
 			name:   "invalid status",
-			status: domain.KYCStatus("invalid"),
+			status: user.KYCStatus("invalid"),
 			want:   false,
 		},
 		{
 			name:   "empty status",
-			status: domain.KYCStatus(""),
+			status: user.KYCStatus(""),
 			want:   false,
 		},
 	}
@@ -184,22 +185,22 @@ func TestKYCStatus_IsValid(t *testing.T) {
 func TestKYCStatus_String(t *testing.T) {
 	tests := []struct {
 		name   string
-		status domain.KYCStatus
+		status user.KYCStatus
 		want   string
 	}{
 		{
 			name:   "pending to string",
-			status: domain.KYCStatusPending,
+			status: user.KYCStatusPending,
 			want:   "pending",
 		},
 		{
 			name:   "verified to string",
-			status: domain.KYCStatusVerified,
+			status: user.KYCStatusVerified,
 			want:   "verified",
 		},
 		{
 			name:   "rejected to string",
-			status: domain.KYCStatusRejected,
+			status: user.KYCStatusRejected,
 			want:   "rejected",
 		},
 	}
@@ -218,12 +219,12 @@ func TestUser_IsDeleted(t *testing.T) {
 
 	tests := []struct {
 		name string
-		user *domain.User
+		user *user.User
 		want bool
 	}{
 		{
 			name: "active user is not deleted",
-			user: &domain.User{
+			user: &user.User{
 				ID:        uuid.New(),
 				DeletedAt: nil,
 			},
@@ -231,7 +232,7 @@ func TestUser_IsDeleted(t *testing.T) {
 		},
 		{
 			name: "deleted user is deleted",
-			user: &domain.User{
+			user: &user.User{
 				ID:        uuid.New(),
 				DeletedAt: &now,
 			},
@@ -251,30 +252,30 @@ func TestUser_IsDeleted(t *testing.T) {
 func TestUser_IsKYCVerified(t *testing.T) {
 	tests := []struct {
 		name string
-		user *domain.User
+		user *user.User
 		want bool
 	}{
 		{
 			name: "verified user is KYC verified",
-			user: &domain.User{
+			user: &user.User{
 				ID:        uuid.New(),
-				KYCStatus: domain.KYCStatusVerified,
+				KYCStatus: user.KYCStatusVerified,
 			},
 			want: true,
 		},
 		{
 			name: "pending user is not KYC verified",
-			user: &domain.User{
+			user: &user.User{
 				ID:        uuid.New(),
-				KYCStatus: domain.KYCStatusPending,
+				KYCStatus: user.KYCStatusPending,
 			},
 			want: false,
 		},
 		{
 			name: "rejected user is not KYC verified",
-			user: &domain.User{
+			user: &user.User{
 				ID:        uuid.New(),
-				KYCStatus: domain.KYCStatusRejected,
+				KYCStatus: user.KYCStatusRejected,
 			},
 			want: false,
 		},
@@ -296,12 +297,12 @@ func TestRefreshToken_IsActive(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		token *domain.RefreshToken
+		token *auth.RefreshToken
 		want  bool
 	}{
 		{
 			name: "active token (not revoked, not expired)",
-			token: &domain.RefreshToken{
+			token: &auth.RefreshToken{
 				Token:     "active_token",
 				ExpiresAt: future,
 				RevokedAt: nil,
@@ -310,7 +311,7 @@ func TestRefreshToken_IsActive(t *testing.T) {
 		},
 		{
 			name: "revoked token is not active",
-			token: &domain.RefreshToken{
+			token: &auth.RefreshToken{
 				Token:     "revoked_token",
 				ExpiresAt: future,
 				RevokedAt: &now,
@@ -319,7 +320,7 @@ func TestRefreshToken_IsActive(t *testing.T) {
 		},
 		{
 			name: "expired token is not active",
-			token: &domain.RefreshToken{
+			token: &auth.RefreshToken{
 				Token:     "expired_token",
 				ExpiresAt: past,
 				RevokedAt: nil,
@@ -328,7 +329,7 @@ func TestRefreshToken_IsActive(t *testing.T) {
 		},
 		{
 			name: "revoked and expired token is not active",
-			token: &domain.RefreshToken{
+			token: &auth.RefreshToken{
 				Token:     "revoked_expired_token",
 				ExpiresAt: past,
 				RevokedAt: &now,
@@ -353,19 +354,19 @@ func TestRefreshToken_IsExpired(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		token *domain.RefreshToken
+		token *auth.RefreshToken
 		want  bool
 	}{
 		{
 			name: "future expiration is not expired",
-			token: &domain.RefreshToken{
+			token: &auth.RefreshToken{
 				ExpiresAt: future,
 			},
 			want: false,
 		},
 		{
 			name: "past expiration is expired",
-			token: &domain.RefreshToken{
+			token: &auth.RefreshToken{
 				ExpiresAt: past,
 			},
 			want: true,
@@ -386,19 +387,19 @@ func TestRefreshToken_IsRevoked(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		token *domain.RefreshToken
+		token *auth.RefreshToken
 		want  bool
 	}{
 		{
 			name: "token with RevokedAt set is revoked",
-			token: &domain.RefreshToken{
+			token: &auth.RefreshToken{
 				RevokedAt: &now,
 			},
 			want: true,
 		},
 		{
 			name: "token with nil RevokedAt is not revoked",
-			token: &domain.RefreshToken{
+			token: &auth.RefreshToken{
 				RevokedAt: nil,
 			},
 			want: false,

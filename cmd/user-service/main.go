@@ -49,9 +49,9 @@ import (
 // Build information. These variables are set during build time using -ldflags.
 // Example: go build -ldflags="-X main.version=v1.2.3 -X main.commit=abc123"
 var (
-	version   = "dev"      // Semantic version (e.g., v1.0.0)
-	commit    = "unknown"  // Git commit hash
-	buildTime = "unknown"  // Build timestamp
+	version   = "dev"     // Semantic version (e.g., v1.0.0)
+	commit    = "unknown" // Git commit hash
+	buildTime = "unknown" // Build timestamp
 )
 
 func main() {
@@ -73,18 +73,18 @@ func main() {
 	// Initialize Vault client for secret management
 	ctx := context.Background()
 	var vaultClient *vault.Client
-	
+
 	if cfg.Vault.Enabled {
 		logger.WithFields(map[string]interface{}{
-			"vault_addr": cfg.Vault.Addr,
+			"vault_addr":  cfg.Vault.Addr,
 			"secret_path": cfg.Vault.SecretPath,
 		}).Info("Initializing Vault client")
-		
+
 		vaultClient, err = vault.NewClient(cfg.Vault.Addr, cfg.Vault.Token)
 		if err != nil {
 			logger.WithField("error", err.Error()).Fatal("Failed to initialize Vault client")
 		}
-		
+
 		// Check Vault availability
 		if !vaultClient.IsAvailable(ctx) {
 			logger.Warn("Vault is configured but not available, falling back to environment variables")
@@ -100,7 +100,7 @@ func main() {
 	if err := cfg.LoadSecretsFromVault(ctx, vaultClient); err != nil {
 		logger.WithField("error", err.Error()).Fatal("Failed to load secrets from Vault")
 	}
-	
+
 	if cfg.Vault.Enabled && vaultClient.IsAvailable(ctx) {
 		logger.Info("Secrets loaded from Vault successfully")
 	} else {
@@ -230,7 +230,7 @@ func main() {
 	// Initialize ServiceRegistry with reflection enabled for dev/sandbox only
 	enableReflection := cfg.IsDevelopment() || cfg.AppEnv == config.EnvSandbox
 	registry := grpcTransport.NewServiceRegistry(grpcServer, grpcTransport.WithReflection(enableReflection))
-	
+
 	logger.WithField("reflection_enabled", enableReflection).Info("Service registry initialized")
 
 	// Register gRPC service
@@ -257,7 +257,7 @@ func main() {
 			"environment":     cfg.AppEnv,
 		},
 	}
-	
+
 	if err := registry.RegisterService(serviceInfo); err != nil {
 		logger.WithField("error", err.Error()).Fatal("Failed to register service in registry")
 	}

@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/audit"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 )
 
 // AuditCleanupJob handles periodic cleanup of expired audit logs
 type AuditCleanupJob struct {
-	auditRepo       domain.AuditRepository
+	auditRepo       audit.Repository
 	logger          *observability.Logger
 	cleanupInterval time.Duration
 	stopChan        chan struct{}
@@ -20,7 +20,7 @@ type AuditCleanupJob struct {
 
 // NewAuditCleanupJob creates a new audit cleanup job
 func NewAuditCleanupJob(
-	auditRepo domain.AuditRepository,
+	auditRepo audit.Repository,
 	logger *observability.Logger,
 	cleanupInterval time.Duration,
 ) *AuditCleanupJob {

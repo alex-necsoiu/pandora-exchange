@@ -7,8 +7,9 @@ import (
 	"time"
 
 	"github.com/alex-necsoiu/pandora-exchange/internal/config"
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/audit"
 	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/common"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -144,7 +145,7 @@ func TracingMiddleware(serviceName string) gin.HandlerFunc {
 
 // AuditMiddleware logs HTTP requests to the audit_logs table
 // Should be placed after AuthMiddleware to capture user information
-func AuditMiddleware(auditRepo domain.AuditRepository, cfg *config.Config, logger *observability.Logger) gin.HandlerFunc {
+func AuditMiddleware(auditRepo audit.Repository, cfg *config.Config, logger *observability.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Capture start time
 		startTime := time.Now()
@@ -184,21 +185,21 @@ func shouldSkipAudit(path string) bool {
 }
 
 // createAuditLog builds and stores the audit log entry
-func createAuditLog(c *gin.Context, auditRepo domain.AuditRepository, cfg *config.Config, startTime time.Time, logger *observability.Logger) error {
+func createAuditLog(c *gin.Context, auditRepo audit.Repository, cfg *config.Config, startTime time.Time, logger *observability.Logger) error {
 	// Extract user information from context (set by AuthMiddleware)
 	var userID *uuid.UUID
-	var actorType domain.AuditActorType
+	var actorType audit.ActorType
 	var actorIdentifier *string
 
 	if userIDVal, exists := c.Get("user_id"); exists {
 		if uid, ok := userIDVal.(uuid.UUID); ok {
 			userID = &uid
-			actorType = domain.AuditActorUser
+			actorType = audit.ActorUser
 
 			// Check if admin
 			if roleVal, roleExists := c.Get("user_role"); roleExists {
 				if role, ok := roleVal.(string); ok && role == "admin" {
-					actorType = domain.AuditActorAdmin
+					actorType = audit.ActorAdmin
 				}
 			}
 
@@ -211,7 +212,7 @@ func createAuditLog(c *gin.Context, auditRepo domain.AuditRepository, cfg *confi
 		}
 	} else {
 		// No authenticated user - anonymous or system
-		actorType = domain.AuditActorAPI
+		actorType = audit.ActorAPI
 		anonymous := "anonymous"
 		actorIdentifier = &anonymous
 	}
@@ -258,7 +259,7 @@ func createAuditLog(c *gin.Context, auditRepo domain.AuditRepository, cfg *confi
 	retentionUntil := time.Now().Add(time.Duration(retentionDays) * 24 * time.Hour)
 
 	// Create audit log
-	auditLog := &domain.AuditLog{
+	auditLog := &audit.Log{
 		EventType:      eventType,
 		EventCategory:  eventCategory,
 		Severity:       severity,
@@ -281,96 +282,96 @@ func createAuditLog(c *gin.Context, auditRepo domain.AuditRepository, cfg *confi
 }
 
 // categorizeRequest determines the event type and category based on the request
-func categorizeRequest(c *gin.Context) (string, domain.AuditEventCategory) {
+func categorizeRequest(c *gin.Context) (string, audit.EventCategory) {
 	path := c.Request.URL.Path
 	method := c.Request.Method
 
 	// Admin endpoints (check FIRST before other patterns)
 	if strings.HasPrefix(path, "/admin") {
-		return "admin." + strings.ToLower(method), domain.AuditCategorySecurity
+		return "admin." + strings.ToLower(method), audit.CategorySecurity
 	}
 
 	// Authentication endpoints
 	if strings.Contains(path, "/auth/register") {
-		return "user.register", domain.AuditCategoryAuthentication
+		return "user.register", audit.CategoryAuthentication
 	}
 	if strings.Contains(path, "/auth/login") {
-		return "user.login", domain.AuditCategoryAuthentication
+		return "user.login", audit.CategoryAuthentication
 	}
 	if strings.Contains(path, "/auth/refresh") {
-		return "token.refresh", domain.AuditCategoryAuthentication
+		return "token.refresh", audit.CategoryAuthentication
 	}
 	if strings.Contains(path, "/auth/logout") {
-		return "user.logout", domain.AuditCategoryAuthentication
+		return "user.logout", audit.CategoryAuthentication
 	}
 
 	// KYC endpoints
 	if strings.Contains(path, "/kyc") {
 		if method == "PUT" {
-			return "user.kyc_update", domain.AuditCategoryCompliance
+			return "user.kyc_update", audit.CategoryCompliance
 		}
-		return "user.kyc_view", domain.AuditCategoryDataAccess
+		return "user.kyc_view", audit.CategoryDataAccess
 	}
 
 	// User management
 	if strings.Contains(path, "/users") {
 		switch method {
 		case "GET":
-			return "user.view", domain.AuditCategoryDataAccess
+			return "user.view", audit.CategoryDataAccess
 		case "PUT", "PATCH":
-			return "user.update", domain.AuditCategoryDataModification
+			return "user.update", audit.CategoryDataModification
 		case "DELETE":
-			return "user.delete", domain.AuditCategoryDataModification
+			return "user.delete", audit.CategoryDataModification
 		case "POST":
-			return "user.create", domain.AuditCategoryDataModification
+			return "user.create", audit.CategoryDataModification
 		}
 	}
 
 	// Default
-	return "http." + strings.ToLower(method), domain.AuditCategoryDataAccess
+	return "http." + strings.ToLower(method), audit.CategoryDataAccess
 }
 
 // determineSeverity assigns severity based on status code and endpoint
-func determineSeverity(c *gin.Context) domain.AuditSeverity {
+func determineSeverity(c *gin.Context) audit.Severity {
 	statusCode := c.Writer.Status()
 	path := c.Request.URL.Path
 
 	// Critical: Admin actions or authentication failures
 	if strings.HasPrefix(path, "/admin") {
-		return domain.AuditSeverityCritical
+		return audit.SeverityCritical
 	}
 	if strings.Contains(path, "/auth") && statusCode >= 400 {
-		return domain.AuditSeverityHigh
+		return audit.SeverityHigh
 	}
 
 	// High: KYC changes, user deletions
 	if strings.Contains(path, "/kyc") && c.Request.Method != "GET" {
-		return domain.AuditSeverityHigh
+		return audit.SeverityHigh
 	}
 	if c.Request.Method == "DELETE" {
-		return domain.AuditSeverityHigh
+		return audit.SeverityHigh
 	}
 
 	// Warning: Client errors
 	if statusCode >= 400 && statusCode < 500 {
-		return domain.AuditSeverityWarning
+		return audit.SeverityWarning
 	}
 
 	// Info: Successful operations
-	return domain.AuditSeverityInfo
+	return audit.SeverityInfo
 }
 
 // determineStatus maps HTTP status code to audit status
-func determineStatus(c *gin.Context) domain.AuditStatus {
+func determineStatus(c *gin.Context) audit.Status {
 	statusCode := c.Writer.Status()
 
 	if statusCode >= 200 && statusCode < 300 {
-		return domain.AuditStatusSuccess
+		return audit.StatusSuccess
 	}
 	if statusCode >= 500 {
-		return domain.AuditStatusError
+		return audit.StatusError
 	}
-	return domain.AuditStatusFailure
+	return audit.StatusFailure
 }
 
 // buildAction creates a human-readable action description
@@ -436,8 +437,8 @@ func ErrorMiddleware() gin.HandlerFunc {
 		traceID := extractTraceID(c.Request.Context())
 
 		// Convert to AppError
-		var appErr *domain.AppError
-		if errors, ok := firstErr.(*domain.AppError); ok {
+		var appErr *common.AppError
+		if errors, ok := firstErr.(*common.AppError); ok {
 			// Already an AppError, use it directly
 			appErr = errors
 			// Update trace ID if not set
@@ -446,7 +447,7 @@ func ErrorMiddleware() gin.HandlerFunc {
 			}
 		} else {
 			// Convert domain error to AppError
-			appErr = domain.NewAppError(firstErr, firstErr.Error(), traceID)
+			appErr = common.NewAppError(firstErr, firstErr.Error(), traceID)
 		}
 
 		// Respond with error JSON

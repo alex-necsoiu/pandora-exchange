@@ -9,7 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	userDomain "github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
 	httpTransport "github.com/alex-necsoiu/pandora-exchange/internal/transport/http"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -39,19 +40,19 @@ func TestRegister(t *testing.T) {
 				"last_name":  "Doe",
 			},
 			mockSetup: func(m *MockUserService) {
-				user := &domain.User{
+				user := &userDomain.User{
 					ID:        uuid.New(),
 					Email:     "newuser@test.com",
 					FirstName: "John",
 					LastName:  "Doe",
-					Role:      domain.RoleUser,
-					KYCStatus: domain.KYCStatusPending,
+					Role:      userDomain.RoleUser,
+					KYCStatus: userDomain.KYCStatusPending,
 					CreatedAt: time.Now(),
 				}
 				m.On("Register", mock.Anything, "newuser@test.com", "SecurePass123!", "John", "Doe").
 					Return(user, nil)
 				
-				tokenPair := &domain.TokenPair{
+				tokenPair := &userDomain.TokenPair{
 					AccessToken:  "test_access_token",
 					RefreshToken: "test_refresh_token",
 					ExpiresAt:    time.Now().Add(15 * time.Minute),
@@ -77,7 +78,7 @@ func TestRegister(t *testing.T) {
 			},
 			mockSetup: func(m *MockUserService) {
 				m.On("Register", mock.Anything, "existing@test.com", "password123", "Jane", "Doe").
-					Return(nil, domain.ErrUserAlreadyExists)
+					Return(nil, userDomain.ErrAlreadyExists)
 			},
 			expectedStatus: http.StatusConflict,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -94,7 +95,7 @@ func TestRegister(t *testing.T) {
 			},
 			mockSetup: func(m *MockUserService) {
 				m.On("Register", mock.Anything, "test@test.com", "weakpass", "John", "Doe").
-					Return(nil, domain.ErrWeakPassword)
+					Return(nil, userDomain.ErrWeakPassword)
 			},
 			expectedStatus: http.StatusBadRequest,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -111,7 +112,7 @@ func TestRegister(t *testing.T) {
 			},
 			mockSetup: func(m *MockUserService) {
 				m.On("Register", mock.Anything, "invalid@test.com", "password123", "John", "Doe").
-					Return(nil, domain.ErrInvalidEmail)
+					Return(nil, userDomain.ErrInvalidEmail)
 			},
 			expectedStatus: http.StatusBadRequest,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -136,7 +137,7 @@ func TestRegister(t *testing.T) {
 				"last_name":  "Doe",
 			},
 			mockSetup: func(m *MockUserService) {
-				user := &domain.User{
+				user := &userDomain.User{
 					ID:        uuid.New(),
 					Email:     "test@test.com",
 					FirstName: "John",
@@ -202,14 +203,14 @@ func TestLogin(t *testing.T) {
 				"password": "correctPassword",
 			},
 			mockSetup: func(m *MockUserService) {
-				user := &domain.User{
+				user := &userDomain.User{
 					ID:        uuid.New(),
 					Email:     "user@test.com",
 					FirstName: "John",
 					LastName:  "Doe",
-					Role:      domain.RoleUser,
+					Role:      userDomain.RoleUser,
 				}
-				tokenPair := &domain.TokenPair{
+				tokenPair := &userDomain.TokenPair{
 					AccessToken:  "access_token",
 					RefreshToken: "refresh_token",
 					ExpiresAt:    time.Now().Add(15 * time.Minute),
@@ -232,7 +233,7 @@ func TestLogin(t *testing.T) {
 			},
 			mockSetup: func(m *MockUserService) {
 				m.On("Login", mock.Anything, "user@test.com", "wrongPassword", mock.Anything, mock.Anything).
-					Return(nil, domain.ErrInvalidCredentials)
+					Return(nil, userDomain.ErrInvalidCredentials)
 			},
 			expectedStatus: http.StatusUnauthorized,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -247,7 +248,7 @@ func TestLogin(t *testing.T) {
 			},
 			mockSetup: func(m *MockUserService) {
 				m.On("Login", mock.Anything, "nonexistent@test.com", "password123", mock.Anything, mock.Anything).
-					Return(nil, domain.ErrUserNotFound)
+					Return(nil, userDomain.ErrNotFound)
 			},
 			expectedStatus: http.StatusNotFound,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -327,13 +328,13 @@ func TestRefreshTokenHandler(t *testing.T) {
 				"refresh_token": "valid_refresh_token",
 			},
 			mockSetup: func(m *MockUserService) {
-				user := &domain.User{
+				user := &userDomain.User{
 					ID:        uuid.New(),
 					Email:     "user@test.com",
 					FirstName: "John",
 					LastName:  "Doe",
 				}
-				tokenPair := &domain.TokenPair{
+				tokenPair := &userDomain.TokenPair{
 					AccessToken:  "new_access_token",
 					RefreshToken: "new_refresh_token",
 					ExpiresAt:    time.Now().Add(15 * time.Minute),
@@ -355,7 +356,7 @@ func TestRefreshTokenHandler(t *testing.T) {
 			},
 			mockSetup: func(m *MockUserService) {
 				m.On("RefreshToken", mock.Anything, "invalid_token", mock.Anything, mock.Anything).
-					Return(nil, domain.ErrRefreshTokenNotFound)
+					Return(nil, auth.ErrRefreshTokenNotFound)
 			},
 			expectedStatus: http.StatusUnauthorized,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -369,7 +370,7 @@ func TestRefreshTokenHandler(t *testing.T) {
 			},
 			mockSetup: func(m *MockUserService) {
 				m.On("RefreshToken", mock.Anything, "expired_token", mock.Anything, mock.Anything).
-					Return(nil, domain.ErrRefreshTokenExpired)
+					Return(nil, auth.ErrRefreshTokenExpired)
 			},
 			expectedStatus: http.StatusUnauthorized,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -383,7 +384,7 @@ func TestRefreshTokenHandler(t *testing.T) {
 			},
 			mockSetup: func(m *MockUserService) {
 				m.On("RefreshToken", mock.Anything, "revoked_token", mock.Anything, mock.Anything).
-					Return(nil, domain.ErrRefreshTokenRevoked)
+					Return(nil, auth.ErrRefreshTokenRevoked)
 			},
 			expectedStatus: http.StatusUnauthorized,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -465,7 +466,7 @@ func TestLogout(t *testing.T) {
 			},
 			mockSetup: func(m *MockUserService) {
 				m.On("Logout", mock.Anything, "nonexistent_token").
-					Return(domain.ErrRefreshTokenNotFound)
+					Return(auth.ErrRefreshTokenNotFound)
 			},
 			expectedStatus: http.StatusUnauthorized,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -592,13 +593,13 @@ func TestGetProfile(t *testing.T) {
 		{
 			name: "get profile successfully",
 			mockSetup: func(m *MockUserService) {
-				user := &domain.User{
+				user := &userDomain.User{
 					ID:        userID,
 					Email:     "user@test.com",
 					FirstName: "John",
 					LastName:  "Doe",
-					Role:      domain.RoleUser,
-					KYCStatus: domain.KYCStatusPending,
+					Role:      userDomain.RoleUser,
+					KYCStatus: userDomain.KYCStatusPending,
 				}
 				m.On("GetByID", mock.Anything, userID).
 					Return(user, nil)
@@ -613,7 +614,7 @@ func TestGetProfile(t *testing.T) {
 			name: "user not found",
 			mockSetup: func(m *MockUserService) {
 				m.On("GetByID", mock.Anything, userID).
-					Return(nil, domain.ErrUserNotFound)
+					Return(nil, userDomain.ErrNotFound)
 			},
 			expectedStatus: http.StatusNotFound,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -667,12 +668,12 @@ func TestUpdateProfile(t *testing.T) {
 				"last_name":  "Smith",
 			},
 			mockSetup: func(m *MockUserService) {
-				user := &domain.User{
+				user := &userDomain.User{
 					ID:        userID,
 					Email:     "user@test.com",
 					FirstName: "Jane",
 					LastName:  "Smith",
-					Role:      domain.RoleUser,
+					Role:      userDomain.RoleUser,
 				}
 				m.On("UpdateProfile", mock.Anything, userID, "Jane", "Smith").
 					Return(user, nil)
@@ -691,7 +692,7 @@ func TestUpdateProfile(t *testing.T) {
 			},
 			mockSetup: func(m *MockUserService) {
 				m.On("UpdateProfile", mock.Anything, userID, "Jane", "Smith").
-					Return(nil, domain.ErrUserNotFound)
+					Return(nil, userDomain.ErrNotFound)
 			},
 			expectedStatus: http.StatusNotFound,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -769,7 +770,7 @@ func TestDeleteAccount(t *testing.T) {
 			name: "user not found",
 			mockSetup: func(m *MockUserService) {
 				m.On("DeleteAccount", mock.Anything, userID).
-					Return(domain.ErrUserNotFound)
+					Return(userDomain.ErrNotFound)
 			},
 			expectedStatus: http.StatusNotFound,
 			validateBody: func(t *testing.T, body map[string]interface{}) {
@@ -818,7 +819,7 @@ func TestGetActiveSessions(t *testing.T) {
 		{
 			name: "get active sessions successfully",
 			mockSetup: func(m *MockUserService) {
-				sessions := []*domain.RefreshToken{
+				sessions := []*auth.RefreshToken{
 					{
 						Token:     "token1",
 						UserID:    userID,
@@ -904,14 +905,14 @@ func TestUpdateKYC(t *testing.T) {
 				"status": "approved",
 			},
 			mockSetup: func(m *MockUserService) {
-				user := &domain.User{
+				user := &userDomain.User{
 					ID:        userID,
 					Email:     "user@test.com",
 					FirstName: "John",
 					LastName:  "Doe",
-					KYCStatus: domain.KYCStatus("approved"),
+					KYCStatus: userDomain.KYCStatus("approved"),
 				}
-				m.On("UpdateKYC", mock.Anything, userID, domain.KYCStatus("approved")).
+				m.On("UpdateKYC", mock.Anything, userID, userDomain.KYCStatus("approved")).
 					Return(user, nil)
 			},
 			expectedStatus: http.StatusOK,

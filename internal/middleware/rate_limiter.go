@@ -15,13 +15,13 @@ import (
 type RateLimiterConfig struct {
 	// RequestsPerWindow is the maximum number of requests allowed per window
 	RequestsPerWindow int
-	
+
 	// WindowDuration is the time window for rate limiting
 	WindowDuration time.Duration
-	
+
 	// EnablePerUserLimits enables stricter limits for authenticated users
 	EnablePerUserLimits bool
-	
+
 	// UserRequestsPerWindow is requests per window for authenticated users
 	// If 0, uses RequestsPerWindow
 	UserRequestsPerWindow int
@@ -49,7 +49,7 @@ func (rl *RateLimiter) Allow(ctx context.Context, key string, limit int) (bool, 
 
 	pipe := rl.redis.Pipeline()
 
-		// Remove old requests outside the window
+	// Remove old requests outside the window
 	pipe.ZRemRangeByScore(ctx, key, "0", fmt.Sprintf("%d", windowStart))
 
 	// Count requests in current window (before adding current request)
@@ -100,7 +100,7 @@ func (rl *RateLimiter) Allow(ctx context.Context, key string, limit int) (bool, 
 func RateLimitMiddleware(limiter *RateLimiter) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
-		
+
 		// Determine rate limit key (IP-based by default)
 		ip := c.ClientIP()
 		key := fmt.Sprintf("ratelimit:ip:%s", ip)
@@ -149,8 +149,8 @@ func RateLimitMiddleware(limiter *RateLimiter) gin.HandlerFunc {
 			retryAfter := int(limiter.config.WindowDuration.Seconds())
 			c.Header("Retry-After", fmt.Sprintf("%d", retryAfter))
 			c.JSON(http.StatusTooManyRequests, gin.H{
-				"error":   "rate_limit_exceeded",
-				"message": "Too many requests. Please try again later.",
+				"error":               "rate_limit_exceeded",
+				"message":             "Too many requests. Please try again later.",
 				"retry_after_seconds": retryAfter,
 			})
 			c.Abort()
@@ -173,9 +173,9 @@ func EndpointRateLimitMiddleware(limiter *RateLimiter, requestsPerWindow int, wi
 	endpointLimiter := &RateLimiter{
 		redis: limiter.redis,
 		config: RateLimiterConfig{
-			RequestsPerWindow:     requestsPerWindow,
-			WindowDuration:        window,
-			EnablePerUserLimits:   false,
+			RequestsPerWindow:   requestsPerWindow,
+			WindowDuration:      window,
+			EnablePerUserLimits: false,
 		},
 	}
 

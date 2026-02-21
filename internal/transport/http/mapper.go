@@ -3,14 +3,14 @@ package http
 import (
 	"strings"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
 	"github.com/alex-necsoiu/pandora-exchange/internal/transport/http/dto"
 )
 
-// ToUserResponse converts a domain.User to a UserResponse DTO.
+// ToUserResponse converts a user.User to a UserResponse DTO.
 // It excludes sensitive information like hashed passwords and only returns
 // data suitable for API responses.
-func ToUserResponse(user domain.User) dto.UserResponse {
+func ToUserResponse(user user.User) dto.UserResponse {
 	return dto.UserResponse{
 		ID:        user.ID.String(),
 		Email:     user.Email,

@@ -1,7 +1,7 @@
-// Package domain contains the core business models and interfaces for the User Service.
-// This layer is independent of infrastructure and transport concerns.
-// Following Clean Architecture principles, domain never imports infrastructure packages.
-package domain
+// Package user contains the user domain model and related types.
+// This package follows Clean Architecture principles, remaining independent
+// of infrastructure and transport concerns.
+package user
 
 import (
 	"time"
@@ -90,40 +90,4 @@ func (u *User) IsKYCVerified() bool {
 // IsAdmin returns true if the user has admin role.
 func (u *User) IsAdmin() bool {
 	return u.Role == RoleAdmin
-}
-
-// TokenPair represents an access token and refresh token pair.
-// Used for JWT-based authentication.
-type TokenPair struct {
-	User         *User
-	AccessToken  string
-	RefreshToken string
-	ExpiresAt    time.Time
-}
-
-// RefreshToken represents a stored refresh token with metadata.
-// Used for session management and token rotation.
-type RefreshToken struct {
-	Token     string
-	UserID    uuid.UUID
-	ExpiresAt time.Time
-	CreatedAt time.Time
-	RevokedAt *time.Time // nil if active
-	IPAddress string
-	UserAgent string
-}
-
-// IsActive returns true if the token is not revoked and not expired.
-func (rt *RefreshToken) IsActive() bool {
-	return rt.RevokedAt == nil && time.Now().Before(rt.ExpiresAt)
-}
-
-// IsExpired returns true if the token has passed its expiration time.
-func (rt *RefreshToken) IsExpired() bool {
-	return time.Now().After(rt.ExpiresAt)
-}
-
-// IsRevoked returns true if the token has been explicitly revoked.
-func (rt *RefreshToken) IsRevoked() bool {
-	return rt.RevokedAt != nil
 }

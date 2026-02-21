@@ -4,8 +4,9 @@ import (
 	"regexp"
 
 	"github.com/alex-necsoiu/pandora-exchange/internal/config"
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/audit"
 	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	grpcTransport "github.com/alex-necsoiu/pandora-exchange/internal/transport/grpc"
 	"github.com/gin-gonic/gin"
@@ -40,9 +41,9 @@ func ValidateParamMiddleware(param string, re *regexp.Regexp) gin.HandlerFunc {
 
 // SetupUserRouter configures and returns a Gin router for user-facing endpoints only.
 func SetupUserRouter(
-	userService domain.UserService,
+	userService user.Service,
 	jwtManager *auth.JWTManager,
-	auditRepo domain.AuditRepository,
+	auditRepo audit.Repository,
 	cfg *config.Config,
 	logger *observability.Logger,
 	mode string, // "release" or "debug"
@@ -117,9 +118,9 @@ func SetupUserRouter(
 // This router is intended to be started as a separate HTTP server (different port) so
 // admin routes never share the same server instance or path space with user routes.
 func SetupAdminRouter(
-	userService domain.UserService,
+	userService user.Service,
 	jwtManager *auth.JWTManager,
-	auditRepo domain.AuditRepository,
+	auditRepo audit.Repository,
 	cfg *config.Config,
 	logger *observability.Logger,
 	mode string,

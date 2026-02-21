@@ -99,9 +99,9 @@ func TestToHTTPError(t *testing.T) {
 // TestToHTTPError_WithAppError verifies AppError is passed through correctly
 func TestToHTTPError_WithAppError(t *testing.T) {
 	ctx := context.Background()
-	
+
 	appErr := NewAppError(ctx, "CUSTOM_ERROR", "Custom error message", http.StatusTeapot)
-	
+
 	statusCode, response := ToHTTPError(ctx, appErr)
 
 	assert.Equal(t, http.StatusTeapot, statusCode)
@@ -112,7 +112,7 @@ func TestToHTTPError_WithAppError(t *testing.T) {
 // TestToHTTPError_TraceIDExtraction verifies trace ID is extracted from context
 func TestToHTTPError_TraceIDExtraction(t *testing.T) {
 	ctx := contextWithTraceID(t, "expected-trace-id")
-	
+
 	statusCode, response := ToHTTPError(ctx, ErrUserNotFound)
 
 	assert.Equal(t, http.StatusNotFound, statusCode)

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	"github.com/alex-necsoiu/pandora-exchange/internal/postgres"
 	"github.com/google/uuid"
@@ -15,7 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// RefreshTokenRepository implements domain.RefreshTokenRepository using sqlc-generated queries.
+// RefreshTokenRepository implements auth.TokenRepository using sqlc-generated queries.
 type RefreshTokenRepository struct {
 	queries *postgres.Queries
 	logger  *observability.Logger
@@ -31,7 +31,7 @@ func NewRefreshTokenRepository(db postgres.DBTX, logger *observability.Logger) *
 }
 
 // Create creates a new refresh token with audit information.
-func (r *RefreshTokenRepository) Create(ctx context.Context, token string, userID uuid.UUID, expiresAt time.Time, ipAddress, userAgent string) (*domain.RefreshToken, error) {
+func (r *RefreshTokenRepository) Create(ctx context.Context, token string, userID uuid.UUID, expiresAt time.Time, ipAddress, userAgent string) (*auth.RefreshToken, error) {
 	r.logger.WithFields(map[string]interface{}{
 		"user_id":    userID,
 		"ip_address": ipAddress,
@@ -65,15 +65,15 @@ func (r *RefreshTokenRepository) Create(ctx context.Context, token string, userI
 }
 
 // GetByToken retrieves a refresh token by its token value.
-// Returns domain.ErrRefreshTokenNotFound if token doesn't exist.
-func (r *RefreshTokenRepository) GetByToken(ctx context.Context, token string) (*domain.RefreshToken, error) {
+// Returns auth.ErrRefreshTokenNotFound if token doesn't exist.
+func (r *RefreshTokenRepository) GetByToken(ctx context.Context, token string) (*auth.RefreshToken, error) {
 	r.logger.Debug("Getting refresh token")
 	
 	dbToken, err := r.queries.GetRefreshToken(ctx, token)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			r.logger.Debug("Refresh token not found")
-			return nil, domain.ErrRefreshTokenNotFound
+			return nil, auth.ErrRefreshTokenNotFound
 		}
 		r.logger.WithField("error", err.Error()).Error("Failed to get refresh token")
 		return nil, fmt.Errorf("failed to get refresh token: %w", err)
@@ -83,7 +83,7 @@ func (r *RefreshTokenRepository) GetByToken(ctx context.Context, token string) (
 }
 
 // Revoke marks a refresh token as revoked.
-// Returns domain.ErrRefreshTokenNotFound if token doesn't exist.
+// Returns auth.ErrRefreshTokenNotFound if token doesn't exist.
 func (r *RefreshTokenRepository) Revoke(ctx context.Context, token string) error {
 	r.logger.Debug("Revoking refresh token")
 	
@@ -91,7 +91,7 @@ func (r *RefreshTokenRepository) Revoke(ctx context.Context, token string) error
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, sql.ErrNoRows) {
 			r.logger.Debug("Refresh token not found for revocation")
-			return domain.ErrRefreshTokenNotFound
+			return auth.ErrRefreshTokenNotFound
 		}
 		r.logger.WithField("error", err.Error()).Error("Failed to revoke refresh token")
 		return fmt.Errorf("failed to revoke refresh token: %w", err)
@@ -99,7 +99,7 @@ func (r *RefreshTokenRepository) Revoke(ctx context.Context, token string) error
 
 	if rowsAffected == 0 {
 		r.logger.Debug("Refresh token not found for revocation (no rows affected)")
-		return domain.ErrRefreshTokenNotFound
+		return auth.ErrRefreshTokenNotFound
 	}
 
 	r.logger.Info("Refresh token revoked successfully")
@@ -125,7 +125,7 @@ func (r *RefreshTokenRepository) RevokeAllForUser(ctx context.Context, userID uu
 }
 
 // GetActiveTokensForUser retrieves all active (non-revoked, non-expired) tokens for a user.
-func (r *RefreshTokenRepository) GetActiveTokensForUser(ctx context.Context, userID uuid.UUID) ([]*domain.RefreshToken, error) {
+func (r *RefreshTokenRepository) GetActiveTokensForUser(ctx context.Context, userID uuid.UUID) ([]*auth.RefreshToken, error) {
 	r.logger.WithField("user_id", userID).Debug("Getting active tokens for user")
 	
 	dbTokens, err := r.queries.GetUserActiveTokens(ctx, userID)
@@ -137,7 +137,7 @@ func (r *RefreshTokenRepository) GetActiveTokensForUser(ctx context.Context, use
 		return nil, fmt.Errorf("failed to get user active tokens: %w", err)
 	}
 
-	tokens := make([]*domain.RefreshToken, len(dbTokens))
+	tokens := make([]*auth.RefreshToken, len(dbTokens))
 	for i, dbToken := range dbTokens {
 		tokens[i] = dbRefreshTokenToDomain(&dbToken)
 	}
@@ -186,8 +186,8 @@ func (r *RefreshTokenRepository) DeleteExpired(ctx context.Context) error {
 }
 
 // dbRefreshTokenToDomain converts a database RefreshToken model to a domain RefreshToken model.
-func dbRefreshTokenToDomain(dbToken *postgres.RefreshToken) *domain.RefreshToken {
-	token := &domain.RefreshToken{
+func dbRefreshTokenToDomain(dbToken *postgres.RefreshToken) *auth.RefreshToken {
+	token := &auth.RefreshToken{
 		Token:     dbToken.Token,
 		UserID:    dbToken.UserID,
 		ExpiresAt: pgTimestampToTime(dbToken.ExpiresAt),
@@ -223,7 +223,7 @@ func timeToPgTimestamp(t time.Time) pgtype.Timestamptz {
 
 // GetAllActiveSessions retrieves all active sessions across all users with pagination.
 // Admin-only operation for monitoring and audit purposes.
-func (r *RefreshTokenRepository) GetAllActiveSessions(ctx context.Context, limit, offset int) ([]*domain.RefreshToken, error) {
+func (r *RefreshTokenRepository) GetAllActiveSessions(ctx context.Context, limit, offset int) ([]*auth.RefreshToken, error) {
 	r.logger.WithFields(map[string]interface{}{
 		"limit":  limit,
 		"offset": offset,
@@ -246,9 +246,9 @@ func (r *RefreshTokenRepository) GetAllActiveSessions(ctx context.Context, limit
 		return nil, fmt.Errorf("failed to get all active sessions: %w", err)
 	}
 
-	tokens := make([]*domain.RefreshToken, len(dbTokens))
+	tokens := make([]*auth.RefreshToken, len(dbTokens))
 	for i, dbToken := range dbTokens {
-		tokens[i] = &domain.RefreshToken{
+		tokens[i] = &auth.RefreshToken{
 			Token:     dbToken.Token,
 			UserID:    dbToken.UserID,
 			ExpiresAt: dbToken.ExpiresAt.Time,
@@ -293,7 +293,7 @@ func (r *RefreshTokenRepository) RevokeToken(ctx context.Context, token string) 
 
 	if rows == 0 {
 		r.logger.Debug("Token not found or already revoked")
-		return domain.ErrTokenNotFound
+		return auth.ErrTokenNotFound
 	}
 
 	r.logger.Info("Token revoked successfully")

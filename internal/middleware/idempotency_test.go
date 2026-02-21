@@ -53,9 +53,9 @@ func TestIdempotencyMiddleware_CachesSuccessfulResponse(t *testing.T) {
 	// Setup
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
-		Store: store,
+		Store:  store,
 		Logger: testLogger(),
-		TTL:   1 * time.Hour,
+		TTL:    1 * time.Hour,
 	}
 
 	callCount := 0
@@ -103,9 +103,9 @@ func TestIdempotencyMiddleware_DifferentKeysNotCached(t *testing.T) {
 	// Setup
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
-		Store: store,
+		Store:  store,
 		Logger: testLogger(),
-		TTL:   1 * time.Hour,
+		TTL:    1 * time.Hour,
 	}
 
 	callCount := 0
@@ -138,9 +138,9 @@ func TestIdempotencyMiddleware_DoesNotCacheErrors(t *testing.T) {
 	// Setup
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
-		Store: store,
+		Store:  store,
 		Logger: testLogger(),
-		TTL:   1 * time.Hour,
+		TTL:    1 * time.Hour,
 	}
 
 	callCount := 0
@@ -179,9 +179,9 @@ func TestIdempotencyMiddleware_KeyTooLong(t *testing.T) {
 	// Setup
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
-		Store: store,
+		Store:  store,
 		Logger: testLogger(),
-		TTL:   1 * time.Hour,
+		TTL:    1 * time.Hour,
 	}
 
 	router := gin.New()
@@ -210,7 +210,7 @@ func TestIdempotencyMiddleware_DifferentBodyHashDifferentCache(t *testing.T) {
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
 		Store:       store,
-		Logger: testLogger(),
+		Logger:      testLogger(),
 		TTL:         1 * time.Hour,
 		IncludeBody: true,
 	}
@@ -248,7 +248,7 @@ func TestIdempotencyMiddleware_SameBodyHashCached(t *testing.T) {
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
 		Store:       store,
-		Logger: testLogger(),
+		Logger:      testLogger(),
 		TTL:         1 * time.Hour,
 		IncludeBody: true,
 	}
@@ -286,9 +286,9 @@ func TestIdempotencyMiddleware_ConcurrentRequestsWithSameKey(t *testing.T) {
 	// Setup
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
-		Store: store,
+		Store:  store,
 		Logger: testLogger(),
-		TTL:   1 * time.Hour,
+		TTL:    1 * time.Hour,
 	}
 
 	callCount := 0
@@ -307,7 +307,7 @@ func TestIdempotencyMiddleware_ConcurrentRequestsWithSameKey(t *testing.T) {
 	// Make concurrent requests
 	var wg sync.WaitGroup
 	results := make([]int, 3)
-	
+
 	for i := 0; i < 3; i++ {
 		wg.Add(1)
 		go func(idx int) {
@@ -326,7 +326,7 @@ func TestIdempotencyMiddleware_ConcurrentRequestsWithSameKey(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 	assert.LessOrEqual(t, callCount, 1, "Handler should be called at most once")
-	
+
 	// Check that we got either OK or Conflict responses
 	for _, code := range results {
 		assert.True(t, code == http.StatusOK || code == http.StatusConflict)
@@ -344,7 +344,7 @@ func TestIdempotencyMiddleware_CustomKeyGenerator(t *testing.T) {
 
 	config := IdempotencyConfig{
 		Store:        store,
-		Logger: testLogger(),
+		Logger:       testLogger(),
 		TTL:          1 * time.Hour,
 		KeyGenerator: customGen,
 	}
@@ -381,9 +381,9 @@ func TestIdempotencyMiddleware_TTLExpiration(t *testing.T) {
 	// Setup with very short TTL
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
-		Store: store,
+		Store:  store,
 		Logger: testLogger(),
-		TTL:   100 * time.Millisecond,
+		TTL:    100 * time.Millisecond,
 	}
 
 	callCount := 0
@@ -420,9 +420,9 @@ func TestIdempotencyMiddleware_PreservesHeaders(t *testing.T) {
 	// Setup
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
-		Store: store,
+		Store:  store,
 		Logger: testLogger(),
-		TTL:   1 * time.Hour,
+		TTL:    1 * time.Hour,
 	}
 
 	router := gin.New()
@@ -455,9 +455,9 @@ func TestIdempotencyMiddleware_DifferentPaths(t *testing.T) {
 	// Setup
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
-		Store: store,
+		Store:  store,
 		Logger: testLogger(),
-		TTL:   1 * time.Hour,
+		TTL:    1 * time.Hour,
 	}
 
 	callCount := 0
@@ -501,7 +501,7 @@ func TestInMemoryStore_Cleanup(t *testing.T) {
 		CachedAt:   time.Now().Add(-2 * time.Hour),
 		ExpiresAt:  time.Now().Add(-1 * time.Hour), // Already expired
 	}
-	
+
 	// Manually insert expired entry (bypassing Set which would update ExpiresAt)
 	store.mu.Lock()
 	store.store["expired-key"] = expired
@@ -521,9 +521,9 @@ func TestClearIdempotencyCache(t *testing.T) {
 	// Setup
 	store := NewInMemoryStore()
 	config := IdempotencyConfig{
-		Store: store,
+		Store:  store,
 		Logger: testLogger(),
-		TTL:   1 * time.Hour,
+		TTL:    1 * time.Hour,
 	}
 
 	router := gin.New()

@@ -6,7 +6,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	userDomain "github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/auth"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/common"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel"
@@ -25,7 +27,7 @@ func TestErrorMiddleware(t *testing.T) {
 		{
 			name: "domain_error_user_not_found",
 			setupHandler: func(c *gin.Context) {
-				_ = c.Error(domain.ErrUserNotFound)
+				_ = c.Error(userDomain.ErrNotFound)
 			},
 			expectedStatus: http.StatusNotFound,
 			expectedBody: map[string]interface{}{
@@ -36,7 +38,7 @@ func TestErrorMiddleware(t *testing.T) {
 		{
 			name: "domain_error_user_already_exists",
 			setupHandler: func(c *gin.Context) {
-				_ = c.Error(domain.ErrUserAlreadyExists)
+				_ = c.Error(userDomain.ErrAlreadyExists)
 			},
 			expectedStatus: http.StatusConflict,
 			expectedBody: map[string]interface{}{
@@ -47,7 +49,7 @@ func TestErrorMiddleware(t *testing.T) {
 		{
 			name: "domain_error_invalid_credentials",
 			setupHandler: func(c *gin.Context) {
-				_ = c.Error(domain.ErrInvalidCredentials)
+				_ = c.Error(userDomain.ErrInvalidCredentials)
 			},
 			expectedStatus: http.StatusUnauthorized,
 			expectedBody: map[string]interface{}{
@@ -58,7 +60,7 @@ func TestErrorMiddleware(t *testing.T) {
 		{
 			name: "domain_error_unauthorized",
 			setupHandler: func(c *gin.Context) {
-				_ = c.Error(domain.ErrUnauthorized)
+				_ = c.Error(auth.ErrUnauthorized)
 			},
 			expectedStatus: http.StatusUnauthorized,
 			expectedBody: map[string]interface{}{
@@ -69,7 +71,7 @@ func TestErrorMiddleware(t *testing.T) {
 		{
 			name: "domain_error_forbidden",
 			setupHandler: func(c *gin.Context) {
-				_ = c.Error(domain.ErrForbidden)
+				_ = c.Error(auth.ErrForbidden)
 			},
 			expectedStatus: http.StatusForbidden,
 			expectedBody: map[string]interface{}{
@@ -80,7 +82,7 @@ func TestErrorMiddleware(t *testing.T) {
 		{
 			name: "domain_error_invalid_input",
 			setupHandler: func(c *gin.Context) {
-				_ = c.Error(domain.ErrInvalidInput)
+				_ = c.Error(userDomain.ErrInvalidInput)
 			},
 			expectedStatus: http.StatusBadRequest,
 			expectedBody: map[string]interface{}{
@@ -102,8 +104,8 @@ func TestErrorMiddleware(t *testing.T) {
 		{
 			name: "app_error_with_details",
 			setupHandler: func(c *gin.Context) {
-				appErr := domain.NewAppError(
-					domain.ErrInvalidEmail,
+				appErr := common.NewAppError(
+					userDomain.ErrInvalidEmail,
 					"Invalid email format",
 					"test-trace-id",
 				).WithDetails(map[string]interface{}{
@@ -135,8 +137,8 @@ func TestErrorMiddleware(t *testing.T) {
 		{
 			name: "multiple_errors_returns_first",
 			setupHandler: func(c *gin.Context) {
-				_ = c.Error(domain.ErrUserNotFound)
-				_ = c.Error(domain.ErrInvalidCredentials)
+				_ = c.Error(userDomain.ErrNotFound)
+				_ = c.Error(userDomain.ErrInvalidCredentials)
 			},
 			expectedStatus: http.StatusNotFound,
 			expectedBody: map[string]interface{}{
@@ -195,7 +197,7 @@ func TestErrorMiddleware_WithTraceID(t *testing.T) {
 		defer span.End()
 		
 		c.Request = c.Request.WithContext(ctx)
-		_ = c.Error(domain.ErrUserNotFound)
+		_ = c.Error(userDomain.ErrNotFound)
 	})
 	
 	w := httptest.NewRecorder()
@@ -213,7 +215,7 @@ func TestErrorMiddleware_LogsErrors(t *testing.T) {
 	router.Use(ErrorMiddleware())
 	
 	router.GET("/test", func(c *gin.Context) {
-		_ = c.Error(domain.ErrInternalServer)
+		_ = c.Error(common.ErrInternalServer)
 	})
 	
 	w := httptest.NewRecorder()

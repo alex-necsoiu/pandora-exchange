@@ -90,9 +90,9 @@ func TestToGRPCError(t *testing.T) {
 // TestToGRPCError_WithAppError verifies AppError is converted correctly
 func TestToGRPCError_WithAppError(t *testing.T) {
 	ctx := context.Background()
-	
+
 	appErr := NewAppError(ctx, "CUSTOM_ERROR", "Custom gRPC error", 400)
-	
+
 	grpcErr := ToGRPCError(ctx, appErr)
 
 	st, ok := status.FromError(grpcErr)

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	"github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
 
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -42,30 +42,36 @@ func (p *RedisEventPublisher) WithStreamName(streamName string) *RedisEventPubli
 }
 
 // Publish publishes a single event to Redis Streams
-func (p *RedisEventPublisher) Publish(event *domain.Event) error {
+func (p *RedisEventPublisher) Publish(event interface{}) error {
 	if event == nil {
 		return fmt.Errorf("event cannot be nil")
+	}
+
+	// Type assert to user.Event
+	userEvent, ok := event.(*user.Event)
+	if !ok {
+		return fmt.Errorf("event must be of type *user.Event")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	// Serialize the event payload to JSON
-	payloadJSON, err := json.Marshal(event.Payload)
+	payloadJSON, err := json.Marshal(userEvent.Payload)
 	if err != nil {
 		p.logger.Error("Failed to marshal event payload",
-			zap.String("event_id", event.ID),
-			zap.String("event_type", string(event.Type)),
+			zap.String("event_id", userEvent.ID),
+			zap.String("event_type", string(userEvent.Type)),
 			zap.Error(err))
 		return fmt.Errorf("failed to marshal event payload: %w", err)
 	}
 
 	// Serialize metadata to JSON
-	metadataJSON, err := json.Marshal(event.Metadata)
+	metadataJSON, err := json.Marshal(userEvent.Metadata)
 	if err != nil {
 		p.logger.Error("Failed to marshal event metadata",
-			zap.String("event_id", event.ID),
-			zap.String("event_type", string(event.Type)),
+			zap.String("event_id", userEvent.ID),
+			zap.String("event_type", string(userEvent.Type)),
 			zap.Error(err))
 		return fmt.Errorf("failed to marshal event metadata: %w", err)
 	}
@@ -73,10 +79,10 @@ func (p *RedisEventPublisher) Publish(event *domain.Event) error {
 	// Prepare Redis Stream entry
 	// Each field is stored as a key-value pair in the stream entry
 	values := map[string]interface{}{
-		"event_id":   event.ID,
-		"event_type": string(event.Type),
-		"user_id":    event.UserID.String(),
-		"timestamp":  event.Timestamp.Format(time.RFC3339Nano),
+		"event_id":   userEvent.ID,
+		"event_type": string(userEvent.Type),
+		"user_id":    userEvent.UserID.String(),
+		"timestamp":  userEvent.Timestamp.Format(time.RFC3339Nano),
 		"payload":    string(payloadJSON),
 		"metadata":   string(metadataJSON),
 	}
@@ -92,8 +98,8 @@ func (p *RedisEventPublisher) Publish(event *domain.Event) error {
 
 	if err := result.Err(); err != nil {
 		p.logger.Error("Failed to publish event to Redis Stream",
-			zap.String("event_id", event.ID),
-			zap.String("event_type", string(event.Type)),
+			zap.String("event_id", userEvent.ID),
+			zap.String("event_type", string(userEvent.Type)),
 			zap.String("stream", p.streamName),
 			zap.Error(err))
 		return fmt.Errorf("failed to publish event to Redis: %w", err)
@@ -101,9 +107,9 @@ func (p *RedisEventPublisher) Publish(event *domain.Event) error {
 
 	streamID := result.Val()
 	p.logger.Info("Event published successfully",
-		zap.String("event_id", event.ID),
-		zap.String("event_type", string(event.Type)),
-		zap.String("user_id", event.UserID.String()),
+		zap.String("event_id", userEvent.ID),
+		zap.String("event_type", string(userEvent.Type)),
+		zap.String("user_id", userEvent.UserID.String()),
 		zap.String("stream", p.streamName),
 		zap.String("stream_id", streamID))
 
@@ -111,9 +117,9 @@ func (p *RedisEventPublisher) Publish(event *domain.Event) error {
 }
 
 // PublishBatch publishes multiple events in a pipeline for better performance
-func (p *RedisEventPublisher) PublishBatch(events []*domain.Event) error {
+func (p *RedisEventPublisher) PublishBatch(events []interface{}) error {
 	if len(events) == 0 {
-		return nil // Nothing to publish
+		return nil
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -128,31 +134,38 @@ func (p *RedisEventPublisher) PublishBatch(events []*domain.Event) error {
 			continue
 		}
 
+		// Type assert to user.Event
+		userEvent, ok := event.(*user.Event)
+		if !ok {
+			p.logger.Warn("Skipping non-user.Event in batch")
+			continue
+		}
+
 		// Serialize payload
-		payloadJSON, err := json.Marshal(event.Payload)
+		payloadJSON, err := json.Marshal(userEvent.Payload)
 		if err != nil {
 			p.logger.Error("Failed to marshal event payload in batch",
-				zap.String("event_id", event.ID),
-				zap.String("event_type", string(event.Type)),
+				zap.String("event_id", userEvent.ID),
+				zap.String("event_type", string(userEvent.Type)),
 				zap.Error(err))
 			return fmt.Errorf("failed to marshal event payload: %w", err)
 		}
 
 		// Serialize metadata
-		metadataJSON, err := json.Marshal(event.Metadata)
+		metadataJSON, err := json.Marshal(userEvent.Metadata)
 		if err != nil {
 			p.logger.Error("Failed to marshal event metadata in batch",
-				zap.String("event_id", event.ID),
-				zap.String("event_type", string(event.Type)),
+				zap.String("event_id", userEvent.ID),
+				zap.String("event_type", string(userEvent.Type)),
 				zap.Error(err))
 			return fmt.Errorf("failed to marshal event metadata: %w", err)
 		}
 
 		values := map[string]interface{}{
-			"event_id":   event.ID,
-			"event_type": string(event.Type),
-			"user_id":    event.UserID.String(),
-			"timestamp":  event.Timestamp.Format(time.RFC3339Nano),
+			"event_id":   userEvent.ID,
+			"event_type": string(userEvent.Type),
+			"user_id":    userEvent.UserID.String(),
+			"timestamp":  userEvent.Timestamp.Format(time.RFC3339Nano),
 			"payload":    string(payloadJSON),
 			"metadata":   string(metadataJSON),
 		}

@@ -3,7 +3,7 @@ package http
 import (
 	"net/http"
 
-	"github.com/alex-necsoiu/pandora-exchange/internal/domain"
+	userDomain "github.com/alex-necsoiu/pandora-exchange/internal/domain/user"
 	"github.com/alex-necsoiu/pandora-exchange/internal/observability"
 	"github.com/gin-gonic/gin"
 )
@@ -12,12 +12,12 @@ import (
 // This handler is mounted on the admin server (separate port) to enforce
 // separation between user and admin authentication endpoints.
 type AdminAuthHandler struct {
-	userService domain.UserService
+	userService userDomain.Service
 	logger      *observability.Logger
 }
 
-// NewAdminAuthHandler creates a new AdminAuthHandler instance.
-func NewAdminAuthHandler(userService domain.UserService, logger *observability.Logger) *AdminAuthHandler {
+// NewAdminAuthHandler creates a new AdminAuthHandler.  
+func NewAdminAuthHandler(userService userDomain.Service, logger *observability.Logger) *AdminAuthHandler {
 	return &AdminAuthHandler{
 		userService: userService,
 		logger:      logger,
@@ -75,7 +75,7 @@ func (h *AdminAuthHandler) AdminLogin(c *gin.Context) {
 	// Call admin login service method (enforces admin role check)
 	tokenPair, err := h.userService.AdminLogin(c.Request.Context(), req.Email, req.Password, ipAddress, userAgent)
 	if err != nil {
-		if err == domain.ErrInvalidCredentials {
+		if err == userDomain.ErrInvalidCredentials {
 			c.JSON(http.StatusUnauthorized, ErrorResponse{
 				Error: "invalid credentials",
 			})
